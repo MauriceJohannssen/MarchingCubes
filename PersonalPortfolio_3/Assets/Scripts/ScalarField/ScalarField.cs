@@ -1,30 +1,34 @@
-using System.Collections;
-using System.Collections.Generic;
-using System.Security.Cryptography;
 using UnityEngine;
+using System.Collections.Generic;
 
 public class ScalarField : MonoBehaviour
 {
     public float scale;
 
-    private int pixelWidth = 500;
-    private int pixelHeight = 500;
+    [Range(0.0f, 5.0f)] public float SurfaceValue = 1.0f;
+
+    private int pixelWidth = 1024;
+    private int pixelHeight = 1024;
 
     private float xOrigin = 0;
     private float yOrigin = 0;
 
-    private Texture2D _noiseTexture;
+    private int amountOfScalars = 50;
+
+    public Texture2D _noiseTexture;
     private Color[] _pixels;
     private MeshRenderer _renderer;
+
+    private List<GameObject> _scalarSpheres = new List<GameObject>();
 
     // Start is called before the first frame update
     private void Start()
     {
         _renderer = GetComponent<MeshRenderer>();
-        _noiseTexture = new Texture2D(pixelWidth, pixelHeight);
+        //_noiseTexture = new Texture2D(pixelWidth, pixelHeight);
         _pixels = new Color[pixelWidth * pixelHeight];
-        _renderer.material.mainTexture = _noiseTexture;
-        AssembleNoiseTexture();
+        //_renderer.material.mainTexture = _noiseTexture;
+        //AssembleNoiseTexture();
         AssembleScalarField();
     }
 
@@ -45,13 +49,25 @@ public class ScalarField : MonoBehaviour
         _noiseTexture.Apply();
     }
 
+    private float Get3DPerlinValue(Vector3 sampleCoordinates)
+    {
+        //Factor is: f(x)= 1 / (x - 1)
+        float multiplicationFactor = 1.0f / (amountOfScalars - 1.0f);
+        Vector3 normalizedSampleCoordinates = sampleCoordinates * multiplicationFactor;
+
+        Debug.Log($"The normalized vector is {normalizedSampleCoordinates}");
+
+        //float xyColorComponent = _pixels[(int) ((normalizedYValue * _noiseTexture.height) * (normalizedXValue * _noiseTexture.width))].maxColorComponent;
+        //float xzColorComponent = _pixels[(int) ((normalizedZValue * _noiseTexture.height) * normalizedXValue * _noiseTexture.width)].maxColorComponent;
+
+        float xzColorComponent = _noiseTexture.GetPixel((int) (normalizedSampleCoordinates.x * _noiseTexture.width), (int) (normalizedSampleCoordinates.z * _noiseTexture.height)).maxColorComponent;
+        float xyColorComponent = _noiseTexture.GetPixel((int) (normalizedSampleCoordinates.x * _noiseTexture.width), (int) (normalizedSampleCoordinates.y * _noiseTexture.height)).maxColorComponent;
+        float yzColorComponent = _noiseTexture.GetPixel((int) (normalizedSampleCoordinates.z * _noiseTexture.width), (int) (normalizedSampleCoordinates.y * _noiseTexture.height)).maxColorComponent;
+        return (xyColorComponent + xzColorComponent + yzColorComponent) / 3.0f;
+    }
+
     private void AssembleScalarField()
     {
-        int amountOfScalars = 40;
-        
-        //NOTE: This is in pixels!
-        int materialStepSize = _noiseTexture.width / amountOfScalars;
-
         Vector3 currentLocalScale = transform.localScale;
         Vector3 startingPosition = transform.position - currentLocalScale / 2;
 
@@ -74,8 +90,9 @@ public class ScalarField : MonoBehaviour
                 {
                     GameObject newGameObject = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                     newGameObject.transform.position = startingPosition + new Vector3(currentX, currentY, currentZ);
-                    newGameObject.transform.localScale *= Mathf.Sqrt(_pixels[(x + y  * _noiseTexture.width) * materialStepSize].maxColorComponent);
-                    if(newGameObject.transform.localScale.magnitude < 1f) Destroy(newGameObject);
+                    newGameObject.transform.localScale *= Get3DPerlinValue(new Vector3(x, y, z));
+                    if (newGameObject.transform.localScale.magnitude < SurfaceValue) Destroy(newGameObject);
+                    else _scalarSpheres.Add(newGameObject);
                     currentZ += vertexStepSizeZ;
                 }
 
@@ -86,5 +103,16 @@ public class ScalarField : MonoBehaviour
             currentY = 0;
             currentX += vertexStepSizeX;
         }
+    }
+
+    public void RebakeScalarField()
+    {
+        foreach (var currentSphere in _scalarSpheres)
+        {
+            Destroy(currentSphere);
+        }
+
+        _scalarSpheres.Clear();
+        AssembleScalarField();
     }
 }
