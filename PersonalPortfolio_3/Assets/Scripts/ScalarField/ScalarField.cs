@@ -204,7 +204,7 @@ public class ScalarField : MonoBehaviour
         float y2 = Mathf.Lerp(x1, x2, v);
 
         //Finally the two interpolated values are interpolated again using the z-axis value to obtain the final value
-        return Mathf.Lerp(y1, y2, w);
+        return Mathf.Lerp(y1, y2, w) * (1/1.73f);
     }
     
     private void AssembleScalarField()
