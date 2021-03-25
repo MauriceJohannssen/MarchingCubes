@@ -7,7 +7,7 @@ public class ScalarField : MonoBehaviour
     public float scale;
     public int repeat = 0;
 
-    [Range(0.0f, 2.0f)] public float SurfaceValue = 0.5f;
+    [Range(-2.0f, 2.0f)] public float SurfaceValue = 0.5f;
 
     private int pixelWidth = 1024;
     private int pixelHeight = 1024;
@@ -15,13 +15,15 @@ public class ScalarField : MonoBehaviour
     private float xOrigin = 0;
     private float yOrigin = 0;
 
-    private int amountOfScalars = 30;
+    private int amountOfScalars = 11;
 
     public Texture2D _noiseTexture;
     private Color[] _pixels;
     private MeshRenderer _renderer;
 
     private List<GameObject> _scalarSpheres = new List<GameObject>();
+
+    public Dictionary<Vector3, float> _vertices = new Dictionary<Vector3, float>();
 
     // Start is called before the first frame update
     private void Start()
@@ -31,7 +33,7 @@ public class ScalarField : MonoBehaviour
         _pixels = new Color[pixelWidth * pixelHeight];
         //_renderer.material.mainTexture = _noiseTexture;
         //AssembleNoiseTexture();
-        AssembleScalarField();
+        //AssembleScalarField();
     }
 
     private void AssembleNoiseTexture()
@@ -141,7 +143,7 @@ public class ScalarField : MonoBehaviour
     }
     
     
-    private float PerlinNoise3D(Vector3 coordinates)
+    public float PerlinNoise3D(Vector3 coordinates)
     {
         //Summary
         // This algorithm takes a 3D vector as input and returns a scalar between 0.0 and 1.0.
@@ -204,7 +206,7 @@ public class ScalarField : MonoBehaviour
         float y2 = Mathf.Lerp(x1, x2, v);
 
         //Finally the two interpolated values are interpolated again using the z-axis value to obtain the final value
-        return Mathf.Lerp(y1, y2, w) * (1/1.73f);
+        return Mathf.Lerp(y1, y2, w);
     }
     
     private void AssembleScalarField()
@@ -235,15 +237,15 @@ public class ScalarField : MonoBehaviour
                 {
                     //Create primitive
                     GameObject newGameObject = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    //Set scale
+                    newGameObject.transform.localScale *= 0.5f;
                     //Set position
                     newGameObject.transform.position = startingPosition + new Vector3(currentX, currentY, currentZ);
-                    //Create a material whose 'blackness' represents the surface value
-                    Material newMaterial = new Material(Shader.Find("HDRP/Lit"));
                     float test = PerlinNoise3D(newGameObject.transform.position);
-                    newMaterial.color = Color.green * test;
-                    newGameObject.GetComponent<MeshRenderer>().sharedMaterial = newMaterial;
+                    //Add vector and scalar to dictionary
+                    _vertices.Add(newGameObject.transform.position, test);
                     //Destroy if surface value is bigger
-                    if (newMaterial.color.g < SurfaceValue) Destroy(newGameObject);
+                    if (test < SurfaceValue) Destroy(newGameObject);
                     //Otherwise add it to the list
                     else _scalarSpheres.Add(newGameObject);
                     currentZ += vertexStepSizeZ;
