@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<!-- saved from url=(0046)https://adrianb.io/2014/08/09/perlinnoise.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<title> Understanding Perlin Noise </title>
+		<link href="./Understanding Perlin Noise_files/css" rel="stylesheet" type="text/css">
+
+		<link rel="stylesheet" type="text/css" href="./Understanding Perlin Noise_files/all.css">
+		<link rel="stylesheet" type="text/css" href="./Understanding Perlin Noise_files/syntax.css">
+		<script async="" src="./Understanding Perlin Noise_files/analytics.js.download"></script><script defer="" src="./Understanding Perlin Noise_files/jquery.min.js.download"></script>
+		<script defer="" type="text/javascript" src="./Understanding Perlin Noise_files/all.js.download"></script>
+		<script defer="" type"text="" javascript"="" src="./Understanding Perlin Noise_files/gfycat.js.download"></script>
+
+		<meta name="viewport" content="width=device-width">
+		
+		
+		<script>
+		  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+		  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+		  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+		  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+		  ga('create', 'UA-53642959-1', 'auto');
+		  ga('send', 'pageview');
+
+		</script>
+	<script type="text/javascript" async="" src="./Understanding Perlin Noise_files/embed.js.download"></script><link rel="prefetch" as="style" href="https://c.disquscdn.com/next/embed/styles/lounge.c82b267b396dfbc10ae5113342115da8.css"><link rel="prefetch" as="script" href="https://c.disquscdn.com/next/embed/common.bundle.f485ba8b89bf2153fdb9f493ec342aed.js"><link rel="prefetch" as="script" href="https://c.disquscdn.com/next/embed/lounge.bundle.23a4221792e0033ef287b443e614e232.js"><link rel="prefetch" as="script" href="https://disqus.com/next/config.js"></head>
+	<body data-new-gr-c-s-check-loaded="14.998.0" data-gr-ext-installed="">
+		<div class="header">
+			<h1 class="grad_text">adrian's soapbox</h1>
+			<div class="nav" id="mobile" style="transform: none;">open navigation</div>
+			<div class="nav" id="desktop" style="transform: none;">
+				<a class="nava" href="https://adrianb.io/index.html"><div class="navlink">home</div></a>
+				<a class="nava" href="https://adrianb.io/about"><div class="navlink">about</div></a>
+				<a class="nava" href="https://github.com/Flafla2"><div class="navlink">github</div></a>
+			</div>
+			<div id="navlinks" style="display: none;">
+				<a class="nava" href="https://adrianb.io/index.html"><div class="navlink">home</div></a>
+				<a class="nava" href="https://adrianb.io/about"><div class="navlink">about</div></a>
+				<a class="nava" href="https://github.com/Flafla2"><div class="navlink">github</div></a>
+			</div>
+		</div>
+		<div class="content">
+
+<div class="article" style="border-bottom: none;">
+	<h1>Understanding Perlin Noise</h1>
+	<p class="postinfo">
+	
+	
+	
+	
+	
+	<a href="https://adrianb.io/tags/tech_writeup/"><span class="post_tag">Technical Writeup</span></a>
+	
+	
+	
+	
+	Posted on 09 August 2014 by Flafla2
+	
+	</p>
+	<p>The objective of this article is to present an easy-to-understand analysis of Ken Perlin's <a href="http://mrl.nyu.edu/~perlin/noise/">Improved Perlin Noise</a>.  The code in this article is written in C# and is free to use.  If you would prefer to just look at the final result, <a href="https://gist.github.com/Flafla2/f0260a861be0ebdeef76">you can view the final source here</a>.</p>
+
+<p>Perlin Noise is an extremely powerful algorithm that is used often in procedural content generation.  It is especially useful for games and other visual media such as movies.  The man who created it, Ken Perlin, <a href="http://mrl.nyu.edu/~perlin/doc/oscar.html">won an academy award for the original implementation</a>.  In this article I will be exploring his <a href="http://mrl.nyu.edu/~perlin/noise/">Improved Perlin Noise</a>, published in 2002.
+<!--break-->
+In game development, Perlin Noise can be used for any sort of wave-like, undulating material or texture.  For example, it could be used for procedural terrain (<em>Minecraft</em>-like terrain can be created with Perlin Noise, for example), fire effects, water, and clouds.  These effects mostly represent Perlin noise in the 2<sup>nd</sup> and 3<sup>rd</sup> dimensions, but it can be extended into the 4<sup>th</sup> dimension rather trivially.  Additionally Perlin Noise can be used in only 1 dimension for purposes such as side-scrolling terrain(such as in <em>Terraria</em> or <em>Starbound</em>) or to create the illusion of handwritten lines.</p>
+
+<p>Also, if you extend Perlin Noise into an additional dimension and consider the extra dimension as time, you can animate it.  For example, 2D Perlin Noise can be interpreted as Terrain, but 3D noise can similarly be interpreted as undulating waves in an ocean scene.  Below are some pictures of Noise in different dimensions and some of their uses at runtime:</p>
+
+<table style="text-align: center">
+    <tbody><tr>
+        <th style="width: 10%">Noise Dimension</th>
+        <th style="width: 40%">Raw Noise (Grayscale)</th>
+        <th style="width: 50%">Use Case</th>
+    </tr>
+    <tr>
+        <td>1</td>
+        <td><img src="./Understanding Perlin Noise_files/raw1d.png" style="width: 100%; max-width: 150px;"></td>
+        <td style="font-size: 0.7em"><img src="./Understanding Perlin Noise_files/use1d.png" style="width: 100%; max-width: 150px;"><br>Using noise as an offset to create handwritten lines.</td>
+    </tr>
+    <tr>
+        <td>2</td>
+        <td><img src="./Understanding Perlin Noise_files/raw2d.png" style="width: 100%; max-width: 150px;"></td>
+        <td style="font-size: 0.7em"><img src="./Understanding Perlin Noise_files/use2d.png" style="width: 100%; max-width: 150px;"><br>By applying a simple gradient, a procedural fire texture can be created.</td>
+    </tr>
+    <tr>
+        <td>3</td>
+        <td><img src="./Understanding Perlin Noise_files/raw3d.png" style="width: 100%; max-width: 150px;"></td>
+        <td style="font-size: 0.7em"><img src="./Understanding Perlin Noise_files/use3d.png" style="width: 100%; max-width: 150px;"><br>Perhaps the quintessential use of Perlin noise today, terrain can be created with caves and caverns using a modified Perlin Noise implementation.</td>
+    </tr>
+</tbody></table>
+
+<p>So as you can see, Perlin Noise has an application to many naturally-occurring phenomenon.  Now let's look into the mathematics and logic of the Perlin Noise Algorithm.</p>
+
+<h2 id="logical-overview">Logical Overview</h2>
+
+<p><em>NOTE: I would like to preface this section by mentioning that a lot of it is taken from <a href="http://webstaff.itn.liu.se/~stegu/TNM022-2005/perlinnoiselinks/perlin-noise-math-faq.html">this wonderful article by Matt Zucker</a>.  However, that article is based on the original Perlin Noise algorithm written in the early 1980s.  In this post I will be using the Improved Perlin Noise Algorithm written in 2002.  Thus, there are some key differences between my version and Zucker's.</em></p>
+
+<p>Let's start off with the basic Perlin Noise function:</p>
+
+<figure class="highlight"><pre><code class="language-csharp" data-lang="csharp"><span class="k">public</span> <span class="kt">double</span> <span class="nf">perlin</span><span class="p">(</span><span class="kt">double</span> <span class="n">x</span><span class="p">,</span> <span class="kt">double</span> <span class="n">y</span><span class="p">,</span> <span class="kt">double</span> <span class="n">z</span><span class="p">);</span></code></pre></figure>
+
+<p>So we have an x, y and z coordinate as input, and as the output we get a <code>double</code> between 0.0 and 1.0.  So what do we do with this input?  First, we divide the x, y, and z coordinates into unit cubes.  In other words, find <code>[x,y,z] % 1.0</code> to find the coordinate's location within the cube.  Below is a representation of this concept in 2 dimensions:</p>
+
+<p style="text-align: center">
+    <img src="./Understanding Perlin Noise_files/logic01.png" style="text-align: center; width: 100%; max-width: 148px;"><br>
+    <i>Figure 1: The blue dot here represents an input coordinate, and the other 4 points are the surrounding integral unit coordinates.</i> (<a href="http://webstaff.itn.liu.se/~stegu/TNM022-2005/perlinnoiselinks/perlin-noise-math-faq.html">Source</a>)
+</p>
+
+<p>On each of the 4 unit coordinates (8 in 3D), we generate what's called a <em>pseudorandom gradient vector</em>.  This gradient vector defines a positive direction (in the direction that it points to) and of course a negative direction (in the direction opposite that it points to).  <em>Pseudorandom</em> means that, for any set of integers inputted into the gradient vector equation, the same result will always come out.  Thus, it seems random, but it isn't in reality.  Additionally this means that each integral coordinate has its "own" gradient that will never change if the gradient function doesn't change.</p>
+
+<p style="text-align: center">
+    <img src="./Understanding Perlin Noise_files/logic02.png" style="text-align: center; width: 100%; max-width: 246px;"><br>
+    <i>Figure 2: Based on the above image, here are some example gradient vectors.</i> (<a href="http://webstaff.itn.liu.se/~stegu/TNM022-2005/perlinnoiselinks/perlin-noise-math-faq.html">Source</a>)
+</p>
+
+<p>The image above is not completely accurate, however.  In Ken Perlin's <em>Improved Noise</em>, which we are using in this article, these gradients aren't completely random.  Instead, they are picked from the vectors of the point in the center of a cube to the edges of the cube:</p>
+
+<figure class="highlight"><pre><code class="language-csharp" data-lang="csharp"><span class="p">(</span><span class="m">1</span><span class="p">,</span><span class="m">1</span><span class="p">,</span><span class="m">0</span><span class="p">),(-</span><span class="m">1</span><span class="p">,</span><span class="m">1</span><span class="p">,</span><span class="m">0</span><span class="p">),(</span><span class="m">1</span><span class="p">,-</span><span class="m">1</span><span class="p">,</span><span class="m">0</span><span class="p">),(-</span><span class="m">1</span><span class="p">,-</span><span class="m">1</span><span class="p">,</span><span class="m">0</span><span class="p">),</span>
+<span class="p">(</span><span class="m">1</span><span class="p">,</span><span class="m">0</span><span class="p">,</span><span class="m">1</span><span class="p">),(-</span><span class="m">1</span><span class="p">,</span><span class="m">0</span><span class="p">,</span><span class="m">1</span><span class="p">),(</span><span class="m">1</span><span class="p">,</span><span class="m">0</span><span class="p">,-</span><span class="m">1</span><span class="p">),(-</span><span class="m">1</span><span class="p">,</span><span class="m">0</span><span class="p">,-</span><span class="m">1</span><span class="p">),</span>
+<span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="m">1</span><span class="p">,</span><span class="m">1</span><span class="p">),(</span><span class="m">0</span><span class="p">,-</span><span class="m">1</span><span class="p">,</span><span class="m">1</span><span class="p">),(</span><span class="m">0</span><span class="p">,</span><span class="m">1</span><span class="p">,-</span><span class="m">1</span><span class="p">),(</span><span class="m">0</span><span class="p">,-</span><span class="m">1</span><span class="p">,-</span><span class="m">1</span><span class="p">)</span></code></pre></figure>
+
+<p>The reasoning behind these specific gradient vectors is described in <a href="http://mrl.nyu.edu/~perlin/paper445.pdf">Ken Perlin's SIGGRAPH 2002 paper: <em>Improving Noise</em></a>.  <em>NOTE: Many other articles about Perlin Noise refer to the original Perlin Noise algorithm, which does not use these vectors.  For example, Figure 2 represents the original algorithm because its source was written before the improved algorithm was released.  However, the basic idea is the same.</em></p>
+
+<p>Next, we need to calculate the 4 vectors (8 in 3D) from the given point to the 8 surrounding points on the grid.  An example case of this in 2D is shown below.</p>
+
+<p style="text-align: center">
+    <img src="./Understanding Perlin Noise_files/logic03.png" style="text-align: center; width: 100%; max-width: 191px;"><br>
+    <i>Figure 3: Example distance vectors.</i> (<a href="http://webstaff.itn.liu.se/~stegu/TNM022-2005/perlinnoiselinks/perlin-noise-math-faq.html">Source</a>)
+</p>
+
+<p>Next, we take the <a href="http://en.wikipedia.org/wiki/Dot_product">dot product</a> between the two vectors (the gradient vector and the distance vector).  This gives us our final <em>influence</em> values:</p>
+
+<p><code>
+grad.x * dist.x + grad.y * dist.y + grad.z * dist.z
+</code></p>
+
+<p>This works because the <a href="http://en.wikipedia.org/wiki/Dot_product">dot product</a> of 2 vectors is equal to the cosine of the angle between the two vectors, multiplied by the magnitude of those vectors:</p>
+
+<p><code>dot(vec1,vec2) = cos(angle(vec1,vec2)) * vec1.length * vec2.length</code></p>
+
+<p>In other words, if the 2 vectors are pointing in the same direction the dot product would equal:</p>
+
+<p><code> 1 * vec1.length * vec2.length </code></p>
+
+<p>..and if the two vectors are pointing in opposite directions the dot product would equal:</p>
+
+<p><code> -1 * vec1.length * vec2.length </code></p>
+
+<p>If the two vectors are perpendicular, the dot product is 0.</p>
+
+<p>Thus, the result of the dot product would be positive when it is in the direction of the gradient, and negative when it is in the opposite.  This is how the gradient vectors define positive and negative directions.  Here is a graphic representing these positive/negative influences:</p>
+
+<p style="text-align: center">
+    <img src="./Understanding Perlin Noise_files/logic04.png" style="text-align: center; width: 100%; max-width: 341px;"><br>
+    <i>Figure 4: A representation of these influences in 2D noise.</i> (<a href="http://gamedev.stackexchange.com/questions/23625/how-do-you-generate-tileable-perlin-noise">Source</a>)
+</p>
+
+<p>So now all we need to do is interpolate between these 4 values so that we get a sort of weighted average in between the 4 grid points (8 in 3D).  The solution to this is easy: average the averages like so (this example is in 2D):</p>
+
+<figure class="highlight"><pre><code class="language-csharp" data-lang="csharp"><span class="c1">// Below are 4 influence values in the arrangement:</span>
+<span class="c1">// [g1] | [g2]</span>
+<span class="c1">// -----------</span>
+<span class="c1">// [g3] | [g4]</span>
+<span class="kt">int</span> <span class="n">g1</span><span class="p">,</span> <span class="n">g2</span><span class="p">,</span> <span class="n">g3</span><span class="p">,</span> <span class="n">g4</span><span class="p">;</span>
+<span class="kt">int</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">;</span>   <span class="c1">// These coordinates are the location of the input coordinate in its unit square.  </span>
+            <span class="c1">// For example a value of (0.5,0.5) is in the exact center of its unit square.</span>
+
+<span class="kt">int</span> <span class="n">x1</span> <span class="p">=</span> <span class="nf">lerp</span><span class="p">(</span><span class="n">g1</span><span class="p">,</span><span class="n">g2</span><span class="p">,</span><span class="n">u</span><span class="p">);</span>
+<span class="kt">int</span> <span class="n">x2</span> <span class="p">=</span> <span class="nf">lerp</span><span class="p">(</span><span class="n">g3</span><span class="p">,</span><span class="n">h4</span><span class="p">,</span><span class="n">u</span><span class="p">);</span>
+
+<span class="kt">int</span> <span class="n">average</span> <span class="p">=</span> <span class="nf">lerp</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span><span class="n">x2</span><span class="p">,</span><span class="n">v</span><span class="p">);</span></code></pre></figure>
+
+<p>There is one final piece to this puzzle: with the above weighted average, the final result would look bad because linear interpolation, while computationally cheap, looks unnatural.  We need a smoother transition between gradients.  So, we use a <em>fade function</em>, also called an <em>ease curve</em>:</p>
+
+<p style="text-align: center">
+    <img src="./Understanding Perlin Noise_files/logic05.png" style="text-align: center; width: 100%; max-width: 108px;"><br>
+    <i>Figure 5: This is an ease curve.</i> (<a href="http://webstaff.itn.liu.se/~stegu/TNM022-2005/perlinnoiselinks/perlin-noise-math-faq.html">Source</a>)
+</p>
+
+<p>This ease curve is applied to the <code>u</code> and <code>v</code> values in the above code example.  This makes changes more gradual as one approaches integral coordinates.  The fade function for the improved perlin noise implementation is this:</p>
+
+<p style="text-align: center">6<i>t</i><sup>5</sup>-15<i>t</i><sup>4</sup>+10<i>t</i><sup>3</sup></p>
+
+<p>Logically, that's it!  We now have all of the components needed to generate Perlin Noise.  Now let's jump into some code.</p>
+
+<h2 id="code-implementation">Code Implementation</h2>
+
+<p>Once again, this code is written in C#.  The code is a slightly modified version of <a href="http://mrl.nyu.edu/~perlin/noise/">Ken Perlin's Java Implementation</a>.  It was modified for additional clarity and deobfuscation, as well as adding the ability to repeat (tile) noise.  The code is of course entirely free to use (considering I didn't really write it in the first place - Ken Perlin did!).</p>
+
+<h3 id="setting-up">Setting Up</h3>
+
+<p>The first thing we need to do is set up our permutation table, or the <code>p[]</code> array for short.  This is simply a length 256 array of random values from 0 - 255 inclusive.  We also repeat this array (for a total size of 512) to avoid buffer overflow later on:</p>
+
+<figure class="highlight"><pre><code class="language-csharp" data-lang="csharp"><span class="k">private</span> <span class="k">static</span> <span class="k">readonly</span> <span class="kt">int</span><span class="p">[]</span> <span class="n">permutation</span> <span class="p">=</span> <span class="p">{</span> <span class="m">151</span><span class="p">,</span><span class="m">160</span><span class="p">,</span><span class="m">137</span><span class="p">,</span><span class="m">91</span><span class="p">,</span><span class="m">90</span><span class="p">,</span><span class="m">15</span><span class="p">,</span>                 <span class="c1">// Hash lookup table as defined by Ken Perlin.  This is a randomly</span>
+    <span class="m">131</span><span class="p">,</span><span class="m">13</span><span class="p">,</span><span class="m">201</span><span class="p">,</span><span class="m">95</span><span class="p">,</span><span class="m">96</span><span class="p">,</span><span class="m">53</span><span class="p">,</span><span class="m">194</span><span class="p">,</span><span class="m">233</span><span class="p">,</span><span class="m">7</span><span class="p">,</span><span class="m">225</span><span class="p">,</span><span class="m">140</span><span class="p">,</span><span class="m">36</span><span class="p">,</span><span class="m">103</span><span class="p">,</span><span class="m">30</span><span class="p">,</span><span class="m">69</span><span class="p">,</span><span class="m">142</span><span class="p">,</span><span class="m">8</span><span class="p">,</span><span class="m">99</span><span class="p">,</span><span class="m">37</span><span class="p">,</span><span class="m">240</span><span class="p">,</span><span class="m">21</span><span class="p">,</span><span class="m">10</span><span class="p">,</span><span class="m">23</span><span class="p">,</span>    <span class="c1">// arranged array of all numbers from 0-255 inclusive.</span>
+    <span class="m">190</span><span class="p">,</span> <span class="m">6</span><span class="p">,</span><span class="m">148</span><span class="p">,</span><span class="m">247</span><span class="p">,</span><span class="m">120</span><span class="p">,</span><span class="m">234</span><span class="p">,</span><span class="m">75</span><span class="p">,</span><span class="m">0</span><span class="p">,</span><span class="m">26</span><span class="p">,</span><span class="m">197</span><span class="p">,</span><span class="m">62</span><span class="p">,</span><span class="m">94</span><span class="p">,</span><span class="m">252</span><span class="p">,</span><span class="m">219</span><span class="p">,</span><span class="m">203</span><span class="p">,</span><span class="m">117</span><span class="p">,</span><span class="m">35</span><span class="p">,</span><span class="m">11</span><span class="p">,</span><span class="m">32</span><span class="p">,</span><span class="m">57</span><span class="p">,</span><span class="m">177</span><span class="p">,</span><span class="m">33</span><span class="p">,</span>
+    <span class="m">88</span><span class="p">,</span><span class="m">237</span><span class="p">,</span><span class="m">149</span><span class="p">,</span><span class="m">56</span><span class="p">,</span><span class="m">87</span><span class="p">,</span><span class="m">174</span><span class="p">,</span><span class="m">20</span><span class="p">,</span><span class="m">125</span><span class="p">,</span><span class="m">136</span><span class="p">,</span><span class="m">171</span><span class="p">,</span><span class="m">168</span><span class="p">,</span> <span class="m">68</span><span class="p">,</span><span class="m">175</span><span class="p">,</span><span class="m">74</span><span class="p">,</span><span class="m">165</span><span class="p">,</span><span class="m">71</span><span class="p">,</span><span class="m">134</span><span class="p">,</span><span class="m">139</span><span class="p">,</span><span class="m">48</span><span class="p">,</span><span class="m">27</span><span class="p">,</span><span class="m">166</span><span class="p">,</span>
+    <span class="m">77</span><span class="p">,</span><span class="m">146</span><span class="p">,</span><span class="m">158</span><span class="p">,</span><span class="m">231</span><span class="p">,</span><span class="m">83</span><span class="p">,</span><span class="m">111</span><span class="p">,</span><span class="m">229</span><span class="p">,</span><span class="m">122</span><span class="p">,</span><span class="m">60</span><span class="p">,</span><span class="m">211</span><span class="p">,</span><span class="m">133</span><span class="p">,</span><span class="m">230</span><span class="p">,</span><span class="m">220</span><span class="p">,</span><span class="m">105</span><span class="p">,</span><span class="m">92</span><span class="p">,</span><span class="m">41</span><span class="p">,</span><span class="m">55</span><span class="p">,</span><span class="m">46</span><span class="p">,</span><span class="m">245</span><span class="p">,</span><span class="m">40</span><span class="p">,</span><span class="m">244</span><span class="p">,</span>
+    <span class="m">102</span><span class="p">,</span><span class="m">143</span><span class="p">,</span><span class="m">54</span><span class="p">,</span> <span class="m">65</span><span class="p">,</span><span class="m">25</span><span class="p">,</span><span class="m">63</span><span class="p">,</span><span class="m">161</span><span class="p">,</span> <span class="m">1</span><span class="p">,</span><span class="m">216</span><span class="p">,</span><span class="m">80</span><span class="p">,</span><span class="m">73</span><span class="p">,</span><span class="m">209</span><span class="p">,</span><span class="m">76</span><span class="p">,</span><span class="m">132</span><span class="p">,</span><span class="m">187</span><span class="p">,</span><span class="m">208</span><span class="p">,</span> <span class="m">89</span><span class="p">,</span><span class="m">18</span><span class="p">,</span><span class="m">169</span><span class="p">,</span><span class="m">200</span><span class="p">,</span><span class="m">196</span><span class="p">,</span>
+    <span class="m">135</span><span class="p">,</span><span class="m">130</span><span class="p">,</span><span class="m">116</span><span class="p">,</span><span class="m">188</span><span class="p">,</span><span class="m">159</span><span class="p">,</span><span class="m">86</span><span class="p">,</span><span class="m">164</span><span class="p">,</span><span class="m">100</span><span class="p">,</span><span class="m">109</span><span class="p">,</span><span class="m">198</span><span class="p">,</span><span class="m">173</span><span class="p">,</span><span class="m">186</span><span class="p">,</span> <span class="m">3</span><span class="p">,</span><span class="m">64</span><span class="p">,</span><span class="m">52</span><span class="p">,</span><span class="m">217</span><span class="p">,</span><span class="m">226</span><span class="p">,</span><span class="m">250</span><span class="p">,</span><span class="m">124</span><span class="p">,</span><span class="m">123</span><span class="p">,</span>
+    <span class="m">5</span><span class="p">,</span><span class="m">202</span><span class="p">,</span><span class="m">38</span><span class="p">,</span><span class="m">147</span><span class="p">,</span><span class="m">118</span><span class="p">,</span><span class="m">126</span><span class="p">,</span><span class="m">255</span><span class="p">,</span><span class="m">82</span><span class="p">,</span><span class="m">85</span><span class="p">,</span><span class="m">212</span><span class="p">,</span><span class="m">207</span><span class="p">,</span><span class="m">206</span><span class="p">,</span><span class="m">59</span><span class="p">,</span><span class="m">227</span><span class="p">,</span><span class="m">47</span><span class="p">,</span><span class="m">16</span><span class="p">,</span><span class="m">58</span><span class="p">,</span><span class="m">17</span><span class="p">,</span><span class="m">182</span><span class="p">,</span><span class="m">189</span><span class="p">,</span><span class="m">28</span><span class="p">,</span><span class="m">42</span><span class="p">,</span>
+    <span class="m">223</span><span class="p">,</span><span class="m">183</span><span class="p">,</span><span class="m">170</span><span class="p">,</span><span class="m">213</span><span class="p">,</span><span class="m">119</span><span class="p">,</span><span class="m">248</span><span class="p">,</span><span class="m">152</span><span class="p">,</span> <span class="m">2</span><span class="p">,</span><span class="m">44</span><span class="p">,</span><span class="m">154</span><span class="p">,</span><span class="m">163</span><span class="p">,</span> <span class="m">70</span><span class="p">,</span><span class="m">221</span><span class="p">,</span><span class="m">153</span><span class="p">,</span><span class="m">101</span><span class="p">,</span><span class="m">155</span><span class="p">,</span><span class="m">167</span><span class="p">,</span> <span class="m">43</span><span class="p">,</span><span class="m">172</span><span class="p">,</span><span class="m">9</span><span class="p">,</span>
+    <span class="m">129</span><span class="p">,</span><span class="m">22</span><span class="p">,</span><span class="m">39</span><span class="p">,</span><span class="m">253</span><span class="p">,</span> <span class="m">19</span><span class="p">,</span><span class="m">98</span><span class="p">,</span><span class="m">108</span><span class="p">,</span><span class="m">110</span><span class="p">,</span><span class="m">79</span><span class="p">,</span><span class="m">113</span><span class="p">,</span><span class="m">224</span><span class="p">,</span><span class="m">232</span><span class="p">,</span><span class="m">178</span><span class="p">,</span><span class="m">185</span><span class="p">,</span> <span class="m">112</span><span class="p">,</span><span class="m">104</span><span class="p">,</span><span class="m">218</span><span class="p">,</span><span class="m">246</span><span class="p">,</span><span class="m">97</span><span class="p">,</span><span class="m">228</span><span class="p">,</span>
+    <span class="m">251</span><span class="p">,</span><span class="m">34</span><span class="p">,</span><span class="m">242</span><span class="p">,</span><span class="m">193</span><span class="p">,</span><span class="m">238</span><span class="p">,</span><span class="m">210</span><span class="p">,</span><span class="m">144</span><span class="p">,</span><span class="m">12</span><span class="p">,</span><span class="m">191</span><span class="p">,</span><span class="m">179</span><span class="p">,</span><span class="m">162</span><span class="p">,</span><span class="m">241</span><span class="p">,</span> <span class="m">81</span><span class="p">,</span><span class="m">51</span><span class="p">,</span><span class="m">145</span><span class="p">,</span><span class="m">235</span><span class="p">,</span><span class="m">249</span><span class="p">,</span><span class="m">14</span><span class="p">,</span><span class="m">239</span><span class="p">,</span><span class="m">107</span><span class="p">,</span>
+    <span class="m">49</span><span class="p">,</span><span class="m">192</span><span class="p">,</span><span class="m">214</span><span class="p">,</span> <span class="m">31</span><span class="p">,</span><span class="m">181</span><span class="p">,</span><span class="m">199</span><span class="p">,</span><span class="m">106</span><span class="p">,</span><span class="m">157</span><span class="p">,</span><span class="m">184</span><span class="p">,</span> <span class="m">84</span><span class="p">,</span><span class="m">204</span><span class="p">,</span><span class="m">176</span><span class="p">,</span><span class="m">115</span><span class="p">,</span><span class="m">121</span><span class="p">,</span><span class="m">50</span><span class="p">,</span><span class="m">45</span><span class="p">,</span><span class="m">127</span><span class="p">,</span> <span class="m">4</span><span class="p">,</span><span class="m">150</span><span class="p">,</span><span class="m">254</span><span class="p">,</span>
+    <span class="m">138</span><span class="p">,</span><span class="m">236</span><span class="p">,</span><span class="m">205</span><span class="p">,</span><span class="m">93</span><span class="p">,</span><span class="m">222</span><span class="p">,</span><span class="m">114</span><span class="p">,</span><span class="m">67</span><span class="p">,</span><span class="m">29</span><span class="p">,</span><span class="m">24</span><span class="p">,</span><span class="m">72</span><span class="p">,</span><span class="m">243</span><span class="p">,</span><span class="m">141</span><span class="p">,</span><span class="m">128</span><span class="p">,</span><span class="m">195</span><span class="p">,</span><span class="m">78</span><span class="p">,</span><span class="m">66</span><span class="p">,</span><span class="m">215</span><span class="p">,</span><span class="m">61</span><span class="p">,</span><span class="m">156</span><span class="p">,</span><span class="m">180</span>
+<span class="p">};</span>
+
+<span class="k">private</span> <span class="k">static</span> <span class="k">readonly</span> <span class="kt">int</span><span class="p">[]</span> <span class="n">p</span><span class="p">;</span>                                                    <span class="c1">// Doubled permutation to avoid overflow</span>
+
+<span class="k">static</span> <span class="nf">Perlin</span><span class="p">()</span> <span class="p">{</span>
+    <span class="n">p</span> <span class="p">=</span> <span class="k">new</span> <span class="kt">int</span><span class="p">[</span><span class="m">512</span><span class="p">];</span>
+    <span class="k">for</span><span class="p">(</span><span class="kt">int</span> <span class="n">x</span><span class="p">=</span><span class="m">0</span><span class="p">;</span><span class="n">x</span><span class="p">&lt;</span><span class="m">512</span><span class="p">;</span><span class="n">x</span><span class="p">++)</span> <span class="p">{</span>
+        <span class="n">p</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="p">=</span> <span class="n">permutation</span><span class="p">[</span><span class="n">x</span><span class="p">%</span><span class="m">256</span><span class="p">];</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>The <code>p[]</code> array is used in a hash function that will determine what gradient vector to use later on.  The specifics of this will be explained later.</p>
+
+<p>Next, we begin our perlin noise function:</p>
+
+<figure class="highlight"><pre><code class="language-csharp" data-lang="csharp"><span class="k">public</span> <span class="kt">double</span> <span class="nf">perlin</span><span class="p">(</span><span class="kt">double</span> <span class="n">x</span><span class="p">,</span> <span class="kt">double</span> <span class="n">y</span><span class="p">,</span> <span class="kt">double</span> <span class="n">z</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span><span class="p">(</span><span class="n">repeat</span> <span class="p">&gt;</span> <span class="m">0</span><span class="p">)</span> <span class="p">{</span>                                    <span class="c1">// If we have any repeat on, change the coordinates to their "local" repetitions</span>
+        <span class="n">x</span> <span class="p">=</span> <span class="n">x</span><span class="p">%</span><span class="n">repeat</span><span class="p">;</span>
+        <span class="n">y</span> <span class="p">=</span> <span class="n">y</span><span class="p">%</span><span class="n">repeat</span><span class="p">;</span>
+        <span class="n">z</span> <span class="p">=</span> <span class="n">z</span><span class="p">%</span><span class="n">repeat</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="kt">int</span> <span class="n">xi</span> <span class="p">=</span> <span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="n">x</span> <span class="p">&amp;</span> <span class="m">255</span><span class="p">;</span>                              <span class="c1">// Calculate the "unit cube" that the point asked will be located in</span>
+    <span class="kt">int</span> <span class="n">yi</span> <span class="p">=</span> <span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="n">y</span> <span class="p">&amp;</span> <span class="m">255</span><span class="p">;</span>                              <span class="c1">// The left bound is ( |_x_|,|_y_|,|_z_| ) and the right bound is that</span>
+    <span class="kt">int</span> <span class="n">zi</span> <span class="p">=</span> <span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="n">z</span> <span class="p">&amp;</span> <span class="m">255</span><span class="p">;</span>                              <span class="c1">// plus 1.  Next we calculate the location (from 0.0 to 1.0) in that cube.</span>
+    <span class="kt">double</span> <span class="n">xf</span> <span class="p">=</span> <span class="n">x</span><span class="p">-(</span><span class="kt">int</span><span class="p">)</span><span class="n">x</span><span class="p">;</span>
+    <span class="kt">double</span> <span class="n">yf</span> <span class="p">=</span> <span class="n">y</span><span class="p">-(</span><span class="kt">int</span><span class="p">)</span><span class="n">y</span><span class="p">;</span>
+    <span class="kt">double</span> <span class="n">zf</span> <span class="p">=</span> <span class="n">z</span><span class="p">-(</span><span class="kt">int</span><span class="p">)</span><span class="n">z</span><span class="p">;</span>
+
+    <span class="c1">// ...</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>This code is pretty self explanatory.  First, we use the modulo (remainder) operator to have our input coordinates overflow if they are over the <code>repeat</code> variable.  Next, we create variables <code>xi, yi, zi</code>.  These represent the unit cube that our coordinate is in.  We also bind our coordinates to the range [0,255] inclusive so that we won't run into overflow errors later on when we access the <code>p[]</code> array.  This also has an unfortunate side effect: Perlin noise always repeats every 256 coordinates.  This isn't a problem though because decimal coordinates are possible with perlin noise.  Finally we find the location of our coordinate inside its unit cube.  This is essentially <code>n = n % 1.0</code> where <em>n</em> is a coordinate.</p>
+
+<h3 id="the-fade-function">The Fade Function</h3>
+
+<p>Now we need to define our fade function, described above (Figure 5).  As mentioned earlier, this is the Perlin Noise fade function:</p>
+
+<p style="text-align: center">6<i>t</i><sup>5</sup>-15<i>t</i><sup>4</sup>+10<i>t</i><sup>3</sup></p>
+
+<p>In code, it is defined like this:</p>
+
+<figure class="highlight"><pre><code class="language-csharp" data-lang="csharp"><span class="k">public</span> <span class="k">static</span> <span class="kt">double</span> <span class="nf">fade</span><span class="p">(</span><span class="kt">double</span> <span class="n">t</span><span class="p">)</span> <span class="p">{</span>
+                                                        <span class="c1">// Fade function as defined by Ken Perlin.  This eases coordinate values</span>
+                                                        <span class="c1">// so that they will ease towards integral values.  This ends up smoothing</span>
+                                                        <span class="c1">// the final output.</span>
+    <span class="k">return</span> <span class="n">t</span> <span class="p">*</span> <span class="n">t</span> <span class="p">*</span> <span class="n">t</span> <span class="p">*</span> <span class="p">(</span><span class="n">t</span> <span class="p">*</span> <span class="p">(</span><span class="n">t</span> <span class="p">*</span> <span class="m">6</span> <span class="p">-</span> <span class="m">15</span><span class="p">)</span> <span class="p">+</span> <span class="m">10</span><span class="p">);</span>         <span class="c1">// 6t^5 - 15t^4 + 10t^3</span>
+<span class="p">}</span>
+
+<span class="k">public</span> <span class="kt">double</span> <span class="nf">perlin</span><span class="p">(</span><span class="kt">double</span> <span class="n">x</span><span class="p">,</span> <span class="kt">double</span> <span class="n">y</span><span class="p">,</span> <span class="kt">double</span> <span class="n">z</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c1">// ...</span>
+
+    <span class="kt">double</span> <span class="n">u</span> <span class="p">=</span> <span class="nf">fade</span><span class="p">(</span><span class="n">xf</span><span class="p">);</span>
+    <span class="kt">double</span> <span class="n">v</span> <span class="p">=</span> <span class="nf">fade</span><span class="p">(</span><span class="n">yf</span><span class="p">);</span>
+    <span class="kt">double</span> <span class="n">w</span> <span class="p">=</span> <span class="nf">fade</span><span class="p">(</span><span class="n">zf</span><span class="p">);</span>
+
+    <span class="c1">// ...</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>The <code>u / v / w</code> values will be used later with interpolation.</p>
+
+<h3 id="the-hash-function">The Hash Function</h3>
+
+<p>The Perlin Noise hash function is used to get a unique value for every coordinate input.  A <em>hash function</em>, as defined by wikipedia, is:</p>
+
+<blockquote>
+…any function that can be used to map data of arbitrary size to data of fixed size, with slight differences in input data producing very big differences in output data.
+</blockquote>
+
+<p>This is the hash function that Perlin Noise uses.  It uses the <code>p[]</code> table that we created earlier:</p>
+
+<figure class="highlight"><pre><code class="language-csharp" data-lang="csharp"><span class="k">public</span> <span class="kt">double</span> <span class="nf">perlin</span><span class="p">(</span><span class="kt">double</span> <span class="n">x</span><span class="p">,</span> <span class="kt">double</span> <span class="n">y</span><span class="p">,</span> <span class="kt">double</span> <span class="n">z</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c1">// ...</span>
+
+    <span class="kt">int</span> <span class="n">aaa</span><span class="p">,</span> <span class="n">aba</span><span class="p">,</span> <span class="n">aab</span><span class="p">,</span> <span class="n">abb</span><span class="p">,</span> <span class="n">baa</span><span class="p">,</span> <span class="n">bba</span><span class="p">,</span> <span class="n">bab</span><span class="p">,</span> <span class="n">bbb</span><span class="p">;</span>
+    <span class="n">aaa</span> <span class="p">=</span> <span class="n">p</span><span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="n">p</span><span class="p">[</span>    <span class="n">xi</span> <span class="p">]+</span>    <span class="n">yi</span> <span class="p">]+</span>    <span class="n">zi</span> <span class="p">];</span>
+    <span class="n">aba</span> <span class="p">=</span> <span class="n">p</span><span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="n">p</span><span class="p">[</span>    <span class="n">xi</span> <span class="p">]+</span><span class="nf">inc</span><span class="p">(</span><span class="n">yi</span><span class="p">)]+</span>    <span class="n">zi</span> <span class="p">];</span>
+    <span class="n">aab</span> <span class="p">=</span> <span class="n">p</span><span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="n">p</span><span class="p">[</span>    <span class="n">xi</span> <span class="p">]+</span>    <span class="n">yi</span> <span class="p">]+</span><span class="nf">inc</span><span class="p">(</span><span class="n">zi</span><span class="p">)];</span>
+    <span class="n">abb</span> <span class="p">=</span> <span class="n">p</span><span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="n">p</span><span class="p">[</span>    <span class="n">xi</span> <span class="p">]+</span><span class="nf">inc</span><span class="p">(</span><span class="n">yi</span><span class="p">)]+</span><span class="nf">inc</span><span class="p">(</span><span class="n">zi</span><span class="p">)];</span>
+    <span class="n">baa</span> <span class="p">=</span> <span class="n">p</span><span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="nf">inc</span><span class="p">(</span><span class="n">xi</span><span class="p">)]+</span>    <span class="n">yi</span> <span class="p">]+</span>    <span class="n">zi</span> <span class="p">];</span>
+    <span class="n">bba</span> <span class="p">=</span> <span class="n">p</span><span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="nf">inc</span><span class="p">(</span><span class="n">xi</span><span class="p">)]+</span><span class="nf">inc</span><span class="p">(</span><span class="n">yi</span><span class="p">)]+</span>    <span class="n">zi</span> <span class="p">];</span>
+    <span class="n">bab</span> <span class="p">=</span> <span class="n">p</span><span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="nf">inc</span><span class="p">(</span><span class="n">xi</span><span class="p">)]+</span>    <span class="n">yi</span> <span class="p">]+</span><span class="nf">inc</span><span class="p">(</span><span class="n">zi</span><span class="p">)];</span>
+    <span class="n">bbb</span> <span class="p">=</span> <span class="n">p</span><span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="nf">inc</span><span class="p">(</span><span class="n">xi</span><span class="p">)]+</span><span class="nf">inc</span><span class="p">(</span><span class="n">yi</span><span class="p">)]+</span><span class="nf">inc</span><span class="p">(</span><span class="n">zi</span><span class="p">)];</span>
+
+    <span class="c1">// ...</span>
+<span class="p">}</span>
+
+<span class="k">public</span> <span class="kt">int</span> <span class="nf">inc</span><span class="p">(</span><span class="kt">int</span> <span class="n">num</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">num</span><span class="p">++;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">repeat</span> <span class="p">&gt;</span> <span class="m">0</span><span class="p">)</span> <span class="n">num</span> <span class="p">%=</span> <span class="n">repeat</span><span class="p">;</span>
+    
+    <span class="k">return</span> <span class="n">num</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>The above hash function hashes all 8 unit cube coordinates surrounding the input coordinate.  <code>inc()</code> is simply used to increment the numbers and make sure that the noise still repeats.  If you didn’t care about the ability to repeat, <code>inc(xi)</code> can be replaced by <code>xi+1</code>.  The result of this hash function is a value between 0 and 255 (inclusive) because of our <code>p[]</code> array.</p>
+
+<h3 id="the-gradient-function">The Gradient Function</h3>
+
+<p>I have always thought that Ken Perlin's original <code>grad()</code> function is needlessly complicated and confusing.  Remember, the goal of <code>grad()</code> is to calculate the dot product of a randomly selected gradient vector and the 8 location vectors.  Ken Perlin used some fancy bit-flipping code to accomplish this:</p>
+
+<figure class="highlight"><pre><code class="language-csharp" data-lang="csharp"><span class="k">public</span> <span class="k">static</span> <span class="kt">double</span> <span class="nf">grad</span><span class="p">(</span><span class="kt">int</span> <span class="n">hash</span><span class="p">,</span> <span class="kt">double</span> <span class="n">x</span><span class="p">,</span> <span class="kt">double</span> <span class="n">y</span><span class="p">,</span> <span class="kt">double</span> <span class="n">z</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">int</span> <span class="n">h</span> <span class="p">=</span> <span class="n">hash</span> <span class="p">&amp;</span> <span class="m">15</span><span class="p">;</span>                                    <span class="c1">// Take the hashed value and take the first 4 bits of it (15 == 0b1111)</span>
+    <span class="kt">double</span> <span class="n">u</span> <span class="p">=</span> <span class="n">h</span> <span class="p">&lt;</span> <span class="m">8</span> <span class="cm">/* 0b1000 */</span> <span class="p">?</span> <span class="n">x</span> <span class="p">:</span> <span class="n">y</span><span class="p">;</span>                <span class="c1">// If the most significant bit (MSB) of the hash is 0 then set u = x.  Otherwise y.</span>
+    
+    <span class="kt">double</span> <span class="n">v</span><span class="p">;</span>                                             <span class="c1">// In Ken Perlin's original implementation this was another conditional operator (?:).  I</span>
+                                                          <span class="c1">// expanded it for readability.</span>
+    
+    <span class="k">if</span><span class="p">(</span><span class="n">h</span> <span class="p">&lt;</span> <span class="m">4</span> <span class="cm">/* 0b0100 */</span><span class="p">)</span>                                <span class="c1">// If the first and second significant bits are 0 set v = y</span>
+        <span class="n">v</span> <span class="p">=</span> <span class="n">y</span><span class="p">;</span>
+    <span class="k">else</span> <span class="k">if</span><span class="p">(</span><span class="n">h</span> <span class="p">==</span> <span class="m">12</span> <span class="cm">/* 0b1100 */</span> <span class="p">||</span> <span class="n">h</span> <span class="p">==</span> <span class="m">14</span> <span class="cm">/* 0b1110*/</span><span class="p">)</span>  <span class="c1">// If the first and second significant bits are 1 set v = x</span>
+        <span class="n">v</span> <span class="p">=</span> <span class="n">x</span><span class="p">;</span>
+    <span class="k">else</span>                                                  <span class="c1">// If the first and second significant bits are not equal (0/1, 1/0) set v = z</span>
+        <span class="n">v</span> <span class="p">=</span> <span class="n">z</span><span class="p">;</span>
+    
+    <span class="k">return</span> <span class="p">((</span><span class="n">h</span><span class="p">&amp;</span><span class="m">1</span><span class="p">)</span> <span class="p">==</span> <span class="m">0</span> <span class="p">?</span> <span class="n">u</span> <span class="p">:</span> <span class="p">-</span><span class="n">u</span><span class="p">)+((</span><span class="n">h</span><span class="p">&amp;</span><span class="m">2</span><span class="p">)</span> <span class="p">==</span> <span class="m">0</span> <span class="p">?</span> <span class="n">v</span> <span class="p">:</span> <span class="p">-</span><span class="n">v</span><span class="p">);</span> <span class="c1">// Use the last 2 bits to decide if u and v are positive or negative.  Then return their addition.</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>Below is an alternate way of writing the above code in a much more easy-to-understand way (and actually faster in many languages):</p>
+
+<figure class="highlight"><pre><code class="language-csharp" data-lang="csharp"><span class="c1">// Source: http://riven8192.blogspot.com/2010/08/calculate-perlinnoise-twice-as-fast.html</span>
+<span class="k">public</span> <span class="k">static</span> <span class="kt">double</span> <span class="nf">grad</span><span class="p">(</span><span class="kt">int</span> <span class="n">hash</span><span class="p">,</span> <span class="kt">double</span> <span class="n">x</span><span class="p">,</span> <span class="kt">double</span> <span class="n">y</span><span class="p">,</span> <span class="kt">double</span> <span class="n">z</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">switch</span><span class="p">(</span><span class="n">hash</span> <span class="p">&amp;</span> <span class="m">0xF</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">case</span> <span class="m">0x0</span><span class="p">:</span> <span class="k">return</span>  <span class="n">x</span> <span class="p">+</span> <span class="n">y</span><span class="p">;</span>
+        <span class="k">case</span> <span class="m">0x1</span><span class="p">:</span> <span class="k">return</span> <span class="p">-</span><span class="n">x</span> <span class="p">+</span> <span class="n">y</span><span class="p">;</span>
+        <span class="k">case</span> <span class="m">0x2</span><span class="p">:</span> <span class="k">return</span>  <span class="n">x</span> <span class="p">-</span> <span class="n">y</span><span class="p">;</span>
+        <span class="k">case</span> <span class="m">0x3</span><span class="p">:</span> <span class="k">return</span> <span class="p">-</span><span class="n">x</span> <span class="p">-</span> <span class="n">y</span><span class="p">;</span>
+        <span class="k">case</span> <span class="m">0x4</span><span class="p">:</span> <span class="k">return</span>  <span class="n">x</span> <span class="p">+</span> <span class="n">z</span><span class="p">;</span>
+        <span class="k">case</span> <span class="m">0x5</span><span class="p">:</span> <span class="k">return</span> <span class="p">-</span><span class="n">x</span> <span class="p">+</span> <span class="n">z</span><span class="p">;</span>
+        <span class="k">case</span> <span class="m">0x6</span><span class="p">:</span> <span class="k">return</span>  <span class="n">x</span> <span class="p">-</span> <span class="n">z</span><span class="p">;</span>
+        <span class="k">case</span> <span class="m">0x7</span><span class="p">:</span> <span class="k">return</span> <span class="p">-</span><span class="n">x</span> <span class="p">-</span> <span class="n">z</span><span class="p">;</span>
+        <span class="k">case</span> <span class="m">0x8</span><span class="p">:</span> <span class="k">return</span>  <span class="n">y</span> <span class="p">+</span> <span class="n">z</span><span class="p">;</span>
+        <span class="k">case</span> <span class="m">0x9</span><span class="p">:</span> <span class="k">return</span> <span class="p">-</span><span class="n">y</span> <span class="p">+</span> <span class="n">z</span><span class="p">;</span>
+        <span class="k">case</span> <span class="m">0xA</span><span class="p">:</span> <span class="k">return</span>  <span class="n">y</span> <span class="p">-</span> <span class="n">z</span><span class="p">;</span>
+        <span class="k">case</span> <span class="m">0xB</span><span class="p">:</span> <span class="k">return</span> <span class="p">-</span><span class="n">y</span> <span class="p">-</span> <span class="n">z</span><span class="p">;</span>
+        <span class="k">case</span> <span class="m">0xC</span><span class="p">:</span> <span class="k">return</span>  <span class="n">y</span> <span class="p">+</span> <span class="n">x</span><span class="p">;</span>
+        <span class="k">case</span> <span class="m">0xD</span><span class="p">:</span> <span class="k">return</span> <span class="p">-</span><span class="n">y</span> <span class="p">+</span> <span class="n">z</span><span class="p">;</span>
+        <span class="k">case</span> <span class="m">0xE</span><span class="p">:</span> <span class="k">return</span>  <span class="n">y</span> <span class="p">-</span> <span class="n">x</span><span class="p">;</span>
+        <span class="k">case</span> <span class="m">0xF</span><span class="p">:</span> <span class="k">return</span> <span class="p">-</span><span class="n">y</span> <span class="p">-</span> <span class="n">z</span><span class="p">;</span>
+        <span class="k">default</span><span class="p">:</span> <span class="k">return</span> <span class="m">0</span><span class="p">;</span> <span class="c1">// never happens</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>The source of the above code can be found <a href="http://riven8192.blogspot.com/2010/08/calculate-perlinnoise-twice-as-fast.html">here</a>.  In any case, both versions do the same thing.  They pick a random vector from the following 12 vectors:</p>
+
+<figure class="highlight"><pre><code class="language-csharp" data-lang="csharp"><span class="p">(</span><span class="m">1</span><span class="p">,</span><span class="m">1</span><span class="p">,</span><span class="m">0</span><span class="p">),(-</span><span class="m">1</span><span class="p">,</span><span class="m">1</span><span class="p">,</span><span class="m">0</span><span class="p">),(</span><span class="m">1</span><span class="p">,-</span><span class="m">1</span><span class="p">,</span><span class="m">0</span><span class="p">),(-</span><span class="m">1</span><span class="p">,-</span><span class="m">1</span><span class="p">,</span><span class="m">0</span><span class="p">),</span>
+<span class="p">(</span><span class="m">1</span><span class="p">,</span><span class="m">0</span><span class="p">,</span><span class="m">1</span><span class="p">),(-</span><span class="m">1</span><span class="p">,</span><span class="m">0</span><span class="p">,</span><span class="m">1</span><span class="p">),(</span><span class="m">1</span><span class="p">,</span><span class="m">0</span><span class="p">,-</span><span class="m">1</span><span class="p">),(-</span><span class="m">1</span><span class="p">,</span><span class="m">0</span><span class="p">,-</span><span class="m">1</span><span class="p">),</span>
+<span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="m">1</span><span class="p">,</span><span class="m">1</span><span class="p">),(</span><span class="m">0</span><span class="p">,-</span><span class="m">1</span><span class="p">,</span><span class="m">1</span><span class="p">),(</span><span class="m">0</span><span class="p">,</span><span class="m">1</span><span class="p">,-</span><span class="m">1</span><span class="p">),(</span><span class="m">0</span><span class="p">,-</span><span class="m">1</span><span class="p">,-</span><span class="m">1</span><span class="p">)</span></code></pre></figure>
+
+<p>This is determined by the last 4 bits of the hash function value (the first parameter of <code>grad()</code>).  The other 3 parameters represent the location vector (that will be used for the dot product).</p>
+
+<h3 id="putting-it-all-together">Putting it all Together</h3>
+
+<p>Now, we take all of these functions, use them for all 8 surrounding unit cube coordinates, and interpolate them together:</p>
+
+<figure class="highlight"><pre><code class="language-csharp" data-lang="csharp"><span class="k">public</span> <span class="kt">double</span> <span class="nf">perlin</span><span class="p">(</span><span class="kt">double</span> <span class="n">x</span><span class="p">,</span> <span class="kt">double</span> <span class="n">y</span><span class="p">,</span> <span class="kt">double</span> <span class="n">z</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c1">// ...</span>
+
+    <span class="kt">double</span> <span class="n">x1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">y1</span><span class="p">,</span> <span class="n">y2</span><span class="p">;</span>
+    <span class="n">x1</span> <span class="p">=</span> <span class="nf">lerp</span><span class="p">(</span>    <span class="nf">grad</span> <span class="p">(</span><span class="n">aaa</span><span class="p">,</span> <span class="n">xf</span>  <span class="p">,</span> <span class="n">yf</span>  <span class="p">,</span> <span class="n">zf</span><span class="p">),</span>           <span class="c1">// The gradient function calculates the dot product between a pseudorandom</span>
+                <span class="nf">grad</span> <span class="p">(</span><span class="n">baa</span><span class="p">,</span> <span class="n">xf</span><span class="p">-</span><span class="m">1</span><span class="p">,</span> <span class="n">yf</span>  <span class="p">,</span> <span class="n">zf</span><span class="p">),</span>             <span class="c1">// gradient vector and the vector from the input coordinate to the 8</span>
+                <span class="n">u</span><span class="p">);</span>                                     <span class="c1">// surrounding points in its unit cube.</span>
+    <span class="n">x2</span> <span class="p">=</span> <span class="nf">lerp</span><span class="p">(</span>    <span class="nf">grad</span> <span class="p">(</span><span class="n">aba</span><span class="p">,</span> <span class="n">xf</span>  <span class="p">,</span> <span class="n">yf</span><span class="p">-</span><span class="m">1</span><span class="p">,</span> <span class="n">zf</span><span class="p">),</span>           <span class="c1">// This is all then lerped together as a sort of weighted average based on the faded (u,v,w)</span>
+                <span class="nf">grad</span> <span class="p">(</span><span class="n">bba</span><span class="p">,</span> <span class="n">xf</span><span class="p">-</span><span class="m">1</span><span class="p">,</span> <span class="n">yf</span><span class="p">-</span><span class="m">1</span><span class="p">,</span> <span class="n">zf</span><span class="p">),</span>             <span class="c1">// values we made earlier.</span>
+                  <span class="n">u</span><span class="p">);</span>
+    <span class="n">y1</span> <span class="p">=</span> <span class="nf">lerp</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">v</span><span class="p">);</span>
+
+    <span class="n">x1</span> <span class="p">=</span> <span class="nf">lerp</span><span class="p">(</span>    <span class="nf">grad</span> <span class="p">(</span><span class="n">aab</span><span class="p">,</span> <span class="n">xf</span>  <span class="p">,</span> <span class="n">yf</span>  <span class="p">,</span> <span class="n">zf</span><span class="p">-</span><span class="m">1</span><span class="p">),</span>
+                <span class="nf">grad</span> <span class="p">(</span><span class="n">bab</span><span class="p">,</span> <span class="n">xf</span><span class="p">-</span><span class="m">1</span><span class="p">,</span> <span class="n">yf</span>  <span class="p">,</span> <span class="n">zf</span><span class="p">-</span><span class="m">1</span><span class="p">),</span>
+                <span class="n">u</span><span class="p">);</span>
+    <span class="n">x2</span> <span class="p">=</span> <span class="nf">lerp</span><span class="p">(</span>    <span class="nf">grad</span> <span class="p">(</span><span class="n">abb</span><span class="p">,</span> <span class="n">xf</span>  <span class="p">,</span> <span class="n">yf</span><span class="p">-</span><span class="m">1</span><span class="p">,</span> <span class="n">zf</span><span class="p">-</span><span class="m">1</span><span class="p">),</span>
+                  <span class="nf">grad</span> <span class="p">(</span><span class="n">bbb</span><span class="p">,</span> <span class="n">xf</span><span class="p">-</span><span class="m">1</span><span class="p">,</span> <span class="n">yf</span><span class="p">-</span><span class="m">1</span><span class="p">,</span> <span class="n">zf</span><span class="p">-</span><span class="m">1</span><span class="p">),</span>
+                  <span class="n">u</span><span class="p">);</span>
+    <span class="n">y2</span> <span class="p">=</span> <span class="nf">lerp</span> <span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">v</span><span class="p">);</span>
+    
+    <span class="k">return</span> <span class="p">(</span><span class="nf">lerp</span> <span class="p">(</span><span class="n">y1</span><span class="p">,</span> <span class="n">y2</span><span class="p">,</span> <span class="n">w</span><span class="p">)+</span><span class="m">1</span><span class="p">)/</span><span class="m">2</span><span class="p">;</span>                      <span class="c1">// For convenience we bind the result to 0 - 1 (theoretical min/max before is [-1, 1])</span>
+<span class="p">}</span>
+
+<span class="c1">// Linear Interpolate</span>
+<span class="k">public</span> <span class="k">static</span> <span class="kt">double</span> <span class="nf">lerp</span><span class="p">(</span><span class="kt">double</span> <span class="n">a</span><span class="p">,</span> <span class="kt">double</span> <span class="n">b</span><span class="p">,</span> <span class="kt">double</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">a</span> <span class="p">+</span> <span class="n">x</span> <span class="p">*</span> <span class="p">(</span><span class="n">b</span> <span class="p">-</span> <span class="n">a</span><span class="p">);</span>
+<span class="p">}</span></code></pre></figure>
+
+<h2 id="working-with-octaves">Working with Octaves</h2>
+
+<p>One final thing I would like to discuss is how to process perlin noise to look more natural.  Even though perlin noise does provide a certain degree of natural behavior, it doesn’t fully express the irregularities that one might expect in nature.  For example, a terrain has large, sweeping features such as mountains, smaller features such as hills and depressions, even smaller ones such as boulders and large rocks, and very small ones like pebbles and minute differences in the terrain.  The solution to this is simple: you take multiple noise functions with varying frequencies and amplitudes, and add them together.  Of course, <em>frequency</em> refers to the period at which data is sampled, and <em>amplitude</em> refers to the range at which the result can be in.</p>
+
+<p style="text-align: center">
+    <img src="./Understanding Perlin Noise_files/octave01.png" style="text-align: center; width: 100%; max-width: 768px;"><br>
+    <i>Figure 6: 6 Example noise results with differing frequencies and amplitudes.</i> (<a href="http://freespace.virgin.net/hugo.elias/models/m_perlin.htm">Source</a>)
+</p>
+
+<p>Add all of these results together, and you get this:</p>
+
+<p style="text-align: center">
+    <img src="./Understanding Perlin Noise_files/octave02.png" style="text-align: center; width: 100%; max-width: 256px;"><br>
+    <i>Figure 7: The addition of the 7 above results.</i> (<a href="http://freespace.virgin.net/hugo.elias/models/m_perlin.htm">Source</a>)
+</p>
+
+<p>Obviously this result is much more convincing.  The above 6 sets of noise are called different <em>octaves</em> of noise.  Each successive octave has less and less influence on the final result.  Of course, with each octave there is a linear increase in code execution time, so you should try not to use more than just a few octaves at runtime (for example, with a procedural fire effect running at 60fps).  However, octaves are great when preprocessing data (such as generating terrain).</p>
+
+<p>But how <em>much</em> influence should each successive octave have, quantitatively?  This question is answered by another value called <strong>persistence</strong>.  <a href="http://freespace.virgin.net/hugo.elias/models/m_perlin.htm">Hugo Elias</a> defines Persistence as follows:</p>
+
+<blockquote>
+frequency = 2<sup>i</sup><br>
+amplitude = persistence<sup>i</sup>
+</blockquote>
+
+<p>Where <em>i</em> is the octave in question.  In code, the implementation is simple:</p>
+
+<figure class="highlight"><pre><code class="language-csharp" data-lang="csharp"><span class="k">public</span> <span class="kt">double</span> <span class="nf">OctavePerlin</span><span class="p">(</span><span class="kt">double</span> <span class="n">x</span><span class="p">,</span> <span class="kt">double</span> <span class="n">y</span><span class="p">,</span> <span class="kt">double</span> <span class="n">z</span><span class="p">,</span> <span class="kt">int</span> <span class="n">octaves</span><span class="p">,</span> <span class="kt">double</span> <span class="n">persistence</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">double</span> <span class="n">total</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+    <span class="kt">double</span> <span class="n">frequency</span> <span class="p">=</span> <span class="m">1</span><span class="p">;</span>
+    <span class="kt">double</span> <span class="n">amplitude</span> <span class="p">=</span> <span class="m">1</span><span class="p">;</span>
+    <span class="kt">double</span> <span class="n">maxValue</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>  <span class="c1">// Used for normalizing result to 0.0 - 1.0</span>
+    <span class="k">for</span><span class="p">(</span><span class="kt">int</span> <span class="n">i</span><span class="p">=</span><span class="m">0</span><span class="p">;</span><span class="n">i</span><span class="p">&lt;</span><span class="n">octaves</span><span class="p">;</span><span class="n">i</span><span class="p">++)</span> <span class="p">{</span>
+        <span class="n">total</span> <span class="p">+=</span> <span class="nf">perlin</span><span class="p">(</span><span class="n">x</span> <span class="p">*</span> <span class="n">frequency</span><span class="p">,</span> <span class="n">y</span> <span class="p">*</span> <span class="n">frequency</span><span class="p">,</span> <span class="n">z</span> <span class="p">*</span> <span class="n">frequency</span><span class="p">)</span> <span class="p">*</span> <span class="n">amplitude</span><span class="p">;</span>
+        
+        <span class="n">maxValue</span> <span class="p">+=</span> <span class="n">amplitude</span><span class="p">;</span>
+        
+        <span class="n">amplitude</span> <span class="p">*=</span> <span class="n">persistence</span><span class="p">;</span>
+        <span class="n">frequency</span> <span class="p">*=</span> <span class="m">2</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="n">total</span><span class="p">/</span><span class="n">maxValue</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>Finally, that's it!  We can now make noise.  <a href="https://gist.github.com/Flafla2/f0260a861be0ebdeef76">Once again, you can find the full source code here</a>.  If you have any questions, please ask in the comments section below.</p>
+
+<h3 id="references">References</h3>
+<p>Here are some references that you can check out if you are interested:</p>
+
+<ul>
+  <li><a href="http://mrl.nyu.edu/~perlin/noise/">Ken Perlin's "Official" Improved Perlin Noise</a> - This is the original algorithm as written by Ken Perlin.</li>
+  <li><a href="http://webstaff.itn.liu.se/~stegu/TNM022-2005/perlinnoiselinks/perlin-noise-math-faq.html">"The Perlin Noise Math FAQ"</a> - This is excellent as a theoretical reference about the algorithm.  Keep in mind however that it uses the <em>original</em> Perlin Noise algorithm from the 80s, not the one that I used in this tutorial.</li>
+  <li><a href="http://freespace.virgin.net/hugo.elias/models/m_perlin.htm">Hugo Elias' article</a> - One of the most popular Perlin Noise articles.  This is a good reference about octaves, persistence, and some uses of perlin noise in the real world.  However, <strong>this is not true perlin noise</strong>!  Hugo's algorithm is <em>not</em> based on gradients like Perlin Noise is.  Instead it is what's known as <em>value noise</em>, which is essentially blurred white noise.  Do not confuse yourself!</li>
+  <li><a href="http://devmag.org.za/2009/04/25/perlin-noise/">"How to use Perlin Noise in Your Games" - Devmag</a> - A cool article about some potential uses of Perlin Noise.  A very interesting read, but <strong>once again this is NOT true perlin noise!</strong>  Devmag uses value noise in that article.</li>
+  <li><a href="http://http.developer.nvidia.com/GPUGems2/gpugems2_chapter26.html">GPU Gems - "Implementing Improved Perlin Noise"</a> - This article taps into the awesome power of the GPU to render stunning ocean scenes in <em>realtime</em> using Perlin Noise.  Shaders are cool!</li>
+</ul>
+
+<p>Thank you for reading!</p>
+
+<h4 id="updates">Updates</h4>
+
+<p>8/9/14 - I have updated the article to include a better explanation about dot products, and I fixed some typos in the article.  Huge thanks to all of the advice given to me by reddit <a href="http://www.reddit.com/r/programming/comments/2d28p6/understanding_perlin_noise_an_indepth_look_at_the/">/r/programming</a>, <a href="http://www.reddit.com/r/gamedev/comments/2d284n/understanding_perlin_noise_an_indepth_look_at_the/">/r/gamedev</a>, and <a href="http://www.reddit.com/r/Unity3D/comments/2d29jj/understanding_perlin_noise_an_indepth_look_at_the/">/r/Unity3D</a>.</p>
+
+	<br>
+
+	
+	<h1>Comments</h1>
+	<div id="disqus_thread"><iframe id="dsq-app1318" name="dsq-app1318" allowtransparency="true" frameborder="0" scrolling="no" tabindex="0" title="Disqus" width="100%" src="./Understanding Perlin Noise_files/saved_resource.html" style="width: 1px !important; min-width: 100% !important; border: none !important; overflow: hidden !important; height: 75px !important;" horizontalscrolling="no" verticalscrolling="no"></iframe></div>
+<script type="text/javascript">
+    /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+    var disqus_shortname = 'flafla2'; // required: replace example with your forum shortname
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+	
+</div>
+
+		</div>
+		<div id="footer"><a rel="license" href="http://creativecommons.org/licenses/by/4.0/"><img alt="Creative Commons License" style="border-width:0" src="./Understanding Perlin Noise_files/80x15.png"></a><br>The original contents of this website are licensed by Adrian Biagioli (Flafla2) under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>.</div>
+	
+<iframe style="display: none;" src="./Understanding Perlin Noise_files/saved_resource(1).html"></iframe></body></html>
