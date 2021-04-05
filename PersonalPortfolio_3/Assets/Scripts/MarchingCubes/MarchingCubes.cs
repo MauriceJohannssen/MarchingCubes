@@ -7,25 +7,26 @@ using UnityEngine.Rendering;
 public class MarchingCubes : MonoBehaviour
 {
     private ScalarField _scalarField;
-    private Vector3 _volumeVector = new Vector3(100, 100, 100);
+    public Vector3 volumeVector = new Vector3(100, 100, 100);
     public Material material;
+    public bool interpolate;
 
     void Start()
     {
         _scalarField = GetComponent<ScalarField>();
-        NoIdea();
+        GenerateMesh();
     }
 
-    private void NoIdea()
+    private void GenerateMesh()
     {
         List<Vector3> vertices = new List<Vector3>();
         List<int> triangles = new List<int>();
         
-        for (int z = 0; z < _volumeVector.z; z++)
+        for (int z = 1; z < volumeVector.z + 1; z++)
         {
-            for (int y = 0; y < _volumeVector.y; y++)
+            for (int y = 1; y < volumeVector.y + 1; y++)
             {
-                for (int x = 0; x < _volumeVector.x; x++)
+                for (int x = 1; x < volumeVector.x + 1; x++)
                 {
                     int cubeIndex = GetCubeIndex(new Vector3(x,y,z));
                     int test = EdgeTable[cubeIndex];
@@ -51,11 +52,13 @@ public class MarchingCubes : MonoBehaviour
             }
         }
 
-        Mesh completeMesh = new Mesh();
-        completeMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-        completeMesh.vertices = vertices.ToArray();
-        completeMesh.triangles = triangles.ToArray();
-        
+        Mesh completeMesh = new Mesh
+        {
+            indexFormat = IndexFormat.UInt32, 
+            vertices = vertices.ToArray(), 
+            triangles = triangles.ToArray()
+        };
+
         //Debug.Log($"The vertex array was {vertices.ToArray().Length} and the triangles array was {trian}");
 
         //completeMesh.RecalculateBounds();
@@ -75,12 +78,46 @@ public class MarchingCubes : MonoBehaviour
         int binaryAddition = 1;
         for (int i = 0; i < CubeVertices.Length; i++)
         {
-            //Debug.Log($"The vector used for the perlin noise was {((pStartingVector + CubeVertices[i]) / _volumeVector.x)}");
-            float perlinNoiseValue = _scalarField.PerlinNoise3D(((pStartingVector + CubeVertices[i]) * 0.2f));
+            /*
+             * Generates the Perlin Noise value for that specific point in 3D space
+             *
+             * Remark: While writing this I encountered a hidden problem:
+             * I am using the Perlin Noise algorithm from my class. The problem is as follows:
+             * Perlin Noise uses the point within the unit cube to interpolate the values from all 8 points to one final scalar value.
+             * In my use case I am using integer values only as points in space, this means the point within the unit cube is always
+             * (0,0,0). This causes the interpolation to only use the value of the first dot product. Furthermore, the first dot product
+             * takes that inner point as parameters and thus the dot product will be 0, and since this value is the only one used all values
+             * will result in 0. I use two steps to tackle this issue.
+             */
+            
+            /*
+             * 1. I scale the vectors to 1/5th of their inherent size.
+             * This way the value lie in between two integers and return valid noise values
+             */
+            Vector3 edgePointVector = (pStartingVector + CubeVertices[i]) * 0.2f;
+
+            float perlinNoiseValue;
+
+            /*
+             * 2. There's still one issue remaining: even though the I downscale the values they can still give an integer value
+             * and that means that all points with that condition would be considered within the shape.
+             * I interpolate between noise values of the points diagonal to the actual point and use this as the actual value.
+             */
+            if (edgePointVector.x % 1 == 0 && edgePointVector.y % 1 == 0 && edgePointVector.z % 1 == 0)
+            {
+                float p1 = _scalarField.PerlinNoise3D(
+                    edgePointVector + new Vector3(0.2f, -0.2f, 0.2f));
+            
+                float p2 = _scalarField.PerlinNoise3D(
+                    edgePointVector + new Vector3(-0.2f, 0.2f, -0.2f));
+            
+                perlinNoiseValue = Mathf.Lerp(p1, p2, 0.5f);
+            }
+            else perlinNoiseValue = _scalarField.PerlinNoise3D(edgePointVector);
+            
             if (perlinNoiseValue < _scalarField.SurfaceValue)
                 cubeIndex |= binaryAddition;
             binaryAddition *= 2;
-            //Debug.Log($"The Perlin Noise value for that vector was {perlinNoiseValue}");
         }
         
         return cubeIndex;

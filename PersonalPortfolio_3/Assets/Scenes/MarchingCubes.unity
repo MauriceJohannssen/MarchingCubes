@@ -156,10 +156,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 171e0f0fe64e8844e90c9dee85a09e93, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  scale: 10
+  noiseTextureSamplingScale: 0
   repeat: 0
-  SurfaceValue: 0.05
-  _noiseTexture: {fileID: 2800000, guid: c24623d989c3b06418925f06672fb458, type: 3}
+  SurfaceValue: -0.8
+  amountOfScalars: 11
 --- !u!65 &186606808
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -248,7 +248,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a3b7a75e7509084499bed4d19028dfa3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  volumeVector: {x: 100, y: 100, z: 100}
   material: {fileID: 2100000, guid: 43190d44b05f184488873254b04da1a5, type: 2}
+  interpolate: 0
 --- !u!1 &291502381
 GameObject:
   m_ObjectHideFlags: 0
