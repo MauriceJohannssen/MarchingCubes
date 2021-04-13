@@ -19,7 +19,7 @@ public class ScalarField : MonoBehaviour
     //Scalar field 
     private readonly List<GameObject> _scalarSpheres = new List<GameObject>();
     private Dictionary<Vector3, float> _vertices = new Dictionary<Vector3, float>();
-    [Range(-2.0f, 2.0f)] public float SurfaceValue = 0.5f;
+    [Range(0f, 1.0f)] public float SurfaceValue = 0.5f;
     public int amountOfScalars = 10;
     
     private void Start()
@@ -149,7 +149,14 @@ public class ScalarField : MonoBehaviour
 
         return gradient;
     }
-    
+
+    public float NormalizedPerlinNoise(Vector3 pCoordinates)
+    {
+        //Shift range
+        float noiseValue = (PerlinNoise3D(pCoordinates) + 1) / 2;
+        float clampedNoise = Mathf.Clamp(noiseValue, 0.0f, 1.0f);
+        return clampedNoise;
+    }
     
     public float PerlinNoise3D(Vector3 coordinates)
     {

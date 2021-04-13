@@ -158,7 +158,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   noiseTextureSamplingScale: 0
   repeat: 0
-  SurfaceValue: 0
+  SurfaceValue: 0.55
   amountOfScalars: 11
 --- !u!65 &186606808
 BoxCollider:

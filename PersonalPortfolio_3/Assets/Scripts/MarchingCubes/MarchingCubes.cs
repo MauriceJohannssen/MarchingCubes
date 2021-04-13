@@ -1,5 +1,7 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -7,10 +9,10 @@ using UnityEngine.Rendering;
 public class MarchingCubes : MonoBehaviour
 {
     private ScalarField _scalarField;
-    public Vector3 volumeVector = new Vector3(100, 100, 100);
+    public Vector3 volumeVector = new Vector3(30, 30, 30);
     public Material material;
     public bool interpolate;
-
+    
     void Start()
     {
         _scalarField = GetComponent<ScalarField>();
@@ -21,57 +23,137 @@ public class MarchingCubes : MonoBehaviour
     {
         List<Vector3> vertices = new List<Vector3>();
         List<int> triangles = new List<int>();
-        
-        for (int z = 1; z < volumeVector.z + 1; z++)
+
+        for (int z = 0; z < volumeVector.z; z++)
         {
-            for (int y = 1; y < volumeVector.y + 1; y++)
+            for (int y = 0; y < volumeVector.y; y++)
             {
-                for (int x = 1; x < volumeVector.x + 1; x++)
+                for (int x = 0; x < volumeVector.x; x++)
                 {
-                    int cubeIndex = GetCubeIndex(new Vector3(x,y,z));
-                    int test = EdgeTable[cubeIndex];
-                    if (test == 0) continue;
-                    
-                     for (int i = 0; TriangleTable[cubeIndex, i] != -1; i += 3)
-                     {
-                         Vector3 vert1 = EdgeVectors[TriangleTable[cubeIndex, i]];
-                         Vector3 vert2 = EdgeVectors[TriangleTable[cubeIndex, i + 1]];
-                         Vector3 vert3 = EdgeVectors[TriangleTable[cubeIndex, i + 2]];
+                    Dictionary<Vector3, float> vectorValueDict = new Dictionary<Vector3, float>();
+                    int cubeIndex = GetCubeIndex(new Vector3(x, y, z), vectorValueDict);
+                    int intersectedEdges = EdgeTable[cubeIndex];
 
-                         int vertexListSize = vertices.Count;
-                         vertices.Add(new Vector3(x, y, z) + vert1);
-                         vertices.Add(new Vector3(x, y, z) + vert2);
-                         vertices.Add(new Vector3(x, y, z) + vert3);
+                    //Is the value is 0, that means that all vertices are either completely inside or outside
+                    //the shape and thus we can continue, disregarding this cube.
+                    if (intersectedEdges == 0) continue;
 
-                         for (int j = 0; j < 3; j++)
-                         {
-                            triangles.Add(vertexListSize+ j);
-                         }
-                     }
+                    Vector3[] interpolatedPoints = new Vector3[12];
+                    int key1 = 0;
+                    int key2 = 0;
+                    int binaryAddition = 1;
+                    int fourCounter = 0;
+                    for (int i = 0; i < 12; i++)
+                    {
+                        switch (i)
+                        {
+                            case 0:
+                                key1 = 0;
+                                key2 = 1; 
+                                break;
+                            case 1:
+                                key1 = 1;
+                                key2 = 2; 
+                                break;
+                            case 2:
+                                key1 = 2;
+                                key2 = 3; 
+                                break;
+                            case 3:
+                                key1 = 3;
+                                key2 = 0; 
+                                break;
+                            case 4:
+                                key1 = 4;
+                                key2 = 5; 
+                                break;
+                            case 5:
+                                key1 = 5;
+                                key2 = 6; 
+                                break;
+                            case 6:
+                                key1 = 7;
+                                key2 = 6; 
+                                break;
+                            case 7:
+                                key1 = 7;
+                                key2 = 4; 
+                                break;
+                            case 8:
+                                key1 = 0;
+                                key2 = 4; 
+                                break;
+                            case 9:
+                                key1 = 1;
+                                key2 = 5; 
+                                break;
+                            case 10:
+                                key1 = 2;
+                                key2 = 6; 
+                                break;
+                            case 11:
+                                key1 = 3;
+                                key2 = 7; 
+                                break;
+                        }
+
+                        //Only interpolates, when edge is cut by isosurface
+                        if ((intersectedEdges & binaryAddition) != 0)
+                        {
+                            if (interpolate)
+                            {
+                                Vector3 keyVec0 = vectorValueDict.Keys.ElementAt(key1);
+                                Vector3 keyVec1 = vectorValueDict.Keys.ElementAt(key2);
+                                 interpolatedPoints[i] = VertexInterpolation(_scalarField.SurfaceValue, keyVec0, keyVec1,
+                                     vectorValueDict[keyVec0], vectorValueDict[keyVec1]);
+                            }
+                            else interpolatedPoints[i] = new Vector3(x, y, z) + EdgeVectors[i];
+                        }
+
+                        binaryAddition *= 2;
+                    }
+
+                    //Create triangle
+                    for (int i = 0; TriangleTable[cubeIndex, i] != -1; i += 3)
+                    {
+                        Vector3 vert1 = interpolatedPoints[TriangleTable[cubeIndex, i]];
+                        Vector3 vert2 = interpolatedPoints[TriangleTable[cubeIndex, i + 1]];
+                        Vector3 vert3 = interpolatedPoints[TriangleTable[cubeIndex, i + 2]];
+
+                        int vertexListSize = vertices.Count;
+                        vertices.Add(vert1);
+                        vertices.Add(vert2);
+                        vertices.Add(vert3);
+
+                        for (int j = 0; j < 3; j++)
+                        {
+                            triangles.Add(vertexListSize + j);
+                        }
+                    }
                 }
             }
         }
 
         Mesh completeMesh = new Mesh
         {
-            indexFormat = IndexFormat.UInt32, 
-            vertices = vertices.ToArray(), 
+            indexFormat = IndexFormat.UInt32,
+            vertices = vertices.ToArray(),
             triangles = triangles.ToArray()
         };
 
-        //Debug.Log($"The vertex array was {vertices.ToArray().Length} and the triangles array was {trian}");
-
-        //completeMesh.RecalculateBounds();
+        completeMesh.RecalculateBounds();
         completeMesh.RecalculateNormals();
-       // completeMesh.RecalculateTangents();
+        completeMesh.RecalculateTangents();
 
         GameObject terrain = new GameObject("Terrain");
         terrain.AddComponent<MeshFilter>().mesh = completeMesh;
         terrain.AddComponent<MeshRenderer>().material = material;
         terrain.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.TwoSided;
+
+        //terrain.AddComponent<MeshCollider>();
     }
 
-    private int GetCubeIndex(Vector3 pStartingVector)
+    private int GetCubeIndex(Vector3 pStartingVector, Dictionary<Vector3, float> pVectorValueDict)
     {
         //This pays attention to the Marching Cubes algorithm vertex conventions
         int cubeIndex = 0;
@@ -89,12 +171,13 @@ public class MarchingCubes : MonoBehaviour
              * takes that inner point as parameters and thus the dot product will be 0, and since this value is the only one used all values
              * will result in 0. I use two steps to tackle this issue.
              */
-            
+
             /*
              * 1. I scale the vectors to 1/5th of their inherent size.
-             * This way the value lie in between two integers and return valid noise values
+             * This way the values lie in between two integers and return valid noise values
              */
-            Vector3 edgePointVector = (pStartingVector + CubeVertices[i]) * 0.2f;
+            Vector3 scaledEdgePointVector = (pStartingVector + CubeVertices[i]) * 0.04f;
+            Vector3 edgePointVector = pStartingVector + CubeVertices[i];
 
             float perlinNoiseValue;
 
@@ -103,26 +186,58 @@ public class MarchingCubes : MonoBehaviour
              * and that means that all points with that condition would be considered within the shape.
              * I interpolate between noise values of the points diagonal to the actual point and use this as the actual value.
              */
-            if (edgePointVector.x % 1 == 0 && edgePointVector.y % 1 == 0 && edgePointVector.z % 1 == 0)
+            if (scaledEdgePointVector.x % 1 == 0 && scaledEdgePointVector.y % 1 == 0 &&
+                scaledEdgePointVector.z % 1 == 0)
             {
-                float p1 = _scalarField.PerlinNoise3D(
-                    edgePointVector + new Vector3(0.2f, -0.2f, 0.2f));
-            
-                float p2 = _scalarField.PerlinNoise3D(
-                    edgePointVector + new Vector3(-0.2f, 0.2f, -0.2f));
-            
+                float p1 = _scalarField.NormalizedPerlinNoise(
+                    scaledEdgePointVector + new Vector3(0.2f, -0.2f, 0.2f));
+
+                float p2 = _scalarField.NormalizedPerlinNoise(
+                    scaledEdgePointVector + new Vector3(-0.2f, 0.2f, -0.2f));
+
                 perlinNoiseValue = Mathf.Lerp(p1, p2, 0.5f);
             }
-            else perlinNoiseValue = _scalarField.PerlinNoise3D(edgePointVector);
+            //Just get the single value, if the case above is not given
+            else perlinNoiseValue = _scalarField.NormalizedPerlinNoise(scaledEdgePointVector);
+
+            //Height heuristic
+            float normalizedY = edgePointVector.y / volumeVector.y;
+            perlinNoiseValue += Mathf.Pow(normalizedY, 16);
             
+            //Assemble the cubeIndex
             if (perlinNoiseValue < _scalarField.SurfaceValue)
+            {
                 cubeIndex |= binaryAddition;
+            }
+
             binaryAddition *= 2;
+
+            pVectorValueDict.Add(edgePointVector, perlinNoiseValue);
         }
-        
+
         return cubeIndex;
     }
 
+    private Vector3 VertexInterpolation(float pIsoLevel, Vector3 pVector1, Vector3 pVector2, float pVec1Value,
+        float pVec2Value)
+    {
+        Vector3 interpolatedVec = new Vector3();
+        if (Mathf.Abs(pIsoLevel - pVec1Value) < 0.001f) return pVector1;
+        if (Mathf.Abs(pIsoLevel - pVec2Value) < 0.001f) return pVector2;
+        if (Mathf.Abs(pVec1Value - pVec2Value) < 0.2f) return pVector1;
+
+        float interpolationAmount = (pIsoLevel - pVec1Value) / (pVec2Value / pVec1Value);
+        Debug.Log("Interpolated!");
+        
+        interpolatedVec.x = pVector1.x + interpolationAmount * (pVector2.x - pVector1.x);
+        interpolatedVec.y = pVector1.y + interpolationAmount * (pVector2.y - pVector1.y);
+        interpolatedVec.z = pVector1.z + interpolationAmount * (pVector2.z - pVector1.z);
+
+        return interpolatedVec;
+    }
+
+    //These are the vectors to point to all cube vertices from the bottom front-left vertex
+    //This pays attention to the Marching Cubes algorithm vertex conventions
     private static readonly Vector3[] CubeVertices =
     {
         new Vector3(0, 0, 1),
@@ -135,6 +250,8 @@ public class MarchingCubes : MonoBehaviour
         new Vector3(0, 1, 0)
     };
 
+    //This is the EdgeTable; it's used with the cubeIndex which determines which vertices are inside the isosurface.
+    //It then returns a number specifying which edge are being intersected by this isosurface.
     private static readonly int[] EdgeTable =
     {
         0x0, 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
@@ -185,7 +302,24 @@ public class MarchingCubes : MonoBehaviour
         new Vector3(0, 0.5f, 1.0f),
         new Vector3(1.0f, 0.5f, 1.0f),
         new Vector3(1.0f, 0.5f, 0),
-        new Vector3(0, 0.5f, 0),
+        new Vector3(0, 0.5f, 0)
+    };
+
+    private static readonly Vector3[] EdgeVectors2 =
+    {
+        //This pays attention to the Marching Cubes algorithm edge convention
+        new Vector3(0.5f, 0, 1.0f),
+        new Vector3(1.0f, 0, 0.5f),
+        new Vector3(0.5f, 0, 0),
+        new Vector3(0, 0, 0.5f),
+        new Vector3(0.5f, 1, 1),
+        new Vector3(1, 1, 0.5f),
+        new Vector3(0.5f, 1, 0),
+        new Vector3(0, 1, 0.5f),
+        new Vector3(0, 0.5f, 1.0f),
+        new Vector3(1.0f, 0.5f, 1.0f),
+        new Vector3(1.0f, 0.5f, 0),
+        new Vector3(0, 0.5f, 0)
     };
 
     private static readonly int[,] TriangleTable =
