@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using System.Collections.Generic;
+using Random = UnityEngine.Random;
 
 public class ScalarField : MonoBehaviour
 {
@@ -19,7 +20,7 @@ public class ScalarField : MonoBehaviour
     //Scalar field 
     private readonly List<GameObject> _scalarSpheres = new List<GameObject>();
     private Dictionary<Vector3, float> _vertices = new Dictionary<Vector3, float>();
-    [Range(0f, 1.0f)] public float SurfaceValue = 0.5f;
+    [Range(-1.0f, 1.0f)] public float SurfaceValue = 0.0f;
     public int amountOfScalars = 10;
     
     private void Start()
@@ -28,6 +29,13 @@ public class ScalarField : MonoBehaviour
         _pixels = new Color[_pixelWidth * _pixelHeight];
         //AssemblePerlinNoiseTexture();
         //AssembleScalarField();
+        for (int i = 0; i < 1500; i++)
+        {
+            Vector3 RandomVec = Random.insideUnitSphere * Random.Range(0, 100);
+            if(RandomVec.x < 0 || RandomVec.y < 0 || RandomVec.z < 0) continue;
+            float value = PerlinNoise3D(RandomVec);
+            if(value < -1.0f || value > 1.0f) Debug.LogWarning("Value was outside range! Value was" + value);
+        }
     }
 
     private void AssemblePerlinNoiseTexture()
@@ -147,15 +155,8 @@ public class ScalarField : MonoBehaviour
                 break;
         }
 
-        return gradient;
-    }
-
-    public float NormalizedPerlinNoise(Vector3 pCoordinates)
-    {
-        //Shift range
-        float noiseValue = (PerlinNoise3D(pCoordinates) + 1) / 2;
-        float clampedNoise = Mathf.Clamp(noiseValue, 0.0f, 1.0f);
-        return clampedNoise;
+        //Normalize the gradient, by dividing is by the max possible value.
+        return gradient / 1.4142f;
     }
     
     public float PerlinNoise3D(Vector3 coordinates)
@@ -301,5 +302,19 @@ public static class VectorExtensions
         //Had to it this way since C# currently does not support extension operator overloading
         var modVector = new Vector3 {x = vector.x % modulo, y = vector.y % modulo, z = vector.z % modulo};
         return modVector;
+    }
+
+    public static bool SmallerThan(this Vector3 left, Vector3 right)
+    {
+        if (left.x < right.x) return true;
+        else if (left.x > right.x) return false;
+
+        if (left.y < right.y) return true;
+        else if (left.y > right.y) return false;
+
+        if (left.z < right.z) return true;
+        else if (left.z > right.z) return false;
+
+        return false;
     }
 }

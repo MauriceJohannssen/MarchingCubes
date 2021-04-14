@@ -24,11 +24,11 @@ public class MarchingCubes : MonoBehaviour
         List<Vector3> vertices = new List<Vector3>();
         List<int> triangles = new List<int>();
 
-        for (int z = 0; z < volumeVector.z; z++)
+        for (int x = 0; x < volumeVector.x; x++)
         {
             for (int y = 0; y < volumeVector.y; y++)
             {
-                for (int x = 0; x < volumeVector.x; x++)
+                for (int z = 0; z < volumeVector.z; z++)
                 {
                     Dictionary<Vector3, float> vectorValueDict = new Dictionary<Vector3, float>();
                     int cubeIndex = GetCubeIndex(new Vector3(x, y, z), vectorValueDict);
@@ -189,20 +189,20 @@ public class MarchingCubes : MonoBehaviour
             if (scaledEdgePointVector.x % 1 == 0 && scaledEdgePointVector.y % 1 == 0 &&
                 scaledEdgePointVector.z % 1 == 0)
             {
-                float p1 = _scalarField.NormalizedPerlinNoise(
+                float p1 = _scalarField.PerlinNoise3D(
                     scaledEdgePointVector + new Vector3(0.2f, -0.2f, 0.2f));
 
-                float p2 = _scalarField.NormalizedPerlinNoise(
+                float p2 = _scalarField.PerlinNoise3D(
                     scaledEdgePointVector + new Vector3(-0.2f, 0.2f, -0.2f));
 
                 perlinNoiseValue = Mathf.Lerp(p1, p2, 0.5f);
             }
             //Just get the single value, if the case above is not given
-            else perlinNoiseValue = _scalarField.NormalizedPerlinNoise(scaledEdgePointVector);
+            else perlinNoiseValue = _scalarField.PerlinNoise3D(scaledEdgePointVector);
 
-            //Height heuristic
-            float normalizedY = edgePointVector.y / volumeVector.y;
-            perlinNoiseValue += Mathf.Pow(normalizedY, 16);
+            // //Height heuristic
+            // float normalizedY = edgePointVector.y / volumeVector.y;
+            // perlinNoiseValue += Mathf.Pow(normalizedY, 16);
             
             //Assemble the cubeIndex
             if (perlinNoiseValue < _scalarField.SurfaceValue)
@@ -218,22 +218,41 @@ public class MarchingCubes : MonoBehaviour
         return cubeIndex;
     }
 
+    // private Vector3 VertexInterpolation(float pIsoLevel, Vector3 pVector1, Vector3 pVector2, float pVec1Value,
+    //     float pVec2Value)
+    // {
+    //     Vector3 interpolatedVec = new Vector3();
+    //     if (Mathf.Abs(pIsoLevel - pVec1Value) < 0.001f) return pVector1;
+    //     if (Mathf.Abs(pIsoLevel - pVec2Value) < 0.001f) return pVector2;
+    //     if (Mathf.Abs(pVec1Value - pVec2Value) < 0.0001f) return pVector1;
+    //
+    //     float interpolationAmount = 0.3f;//(pIsoLevel - pVec1Value) / (pVec2Value / pVec1Value);
+    //
+    //     interpolatedVec.x = pVector1.x + interpolationAmount * (pVector2.x - pVector1.x);
+    //     interpolatedVec.y = pVector1.y + interpolationAmount * (pVector2.y - pVector1.y);
+    //     interpolatedVec.z = pVector1.z + interpolationAmount * (pVector2.z - pVector1.z);
+    //     return interpolatedVec;
+    // }
+    
     private Vector3 VertexInterpolation(float pIsoLevel, Vector3 pVector1, Vector3 pVector2, float pVec1Value,
         float pVec2Value)
     {
-        Vector3 interpolatedVec = new Vector3();
-        if (Mathf.Abs(pIsoLevel - pVec1Value) < 0.001f) return pVector1;
-        if (Mathf.Abs(pIsoLevel - pVec2Value) < 0.001f) return pVector2;
-        if (Mathf.Abs(pVec1Value - pVec2Value) < 0.2f) return pVector1;
+        if (pVector2.SmallerThan(pVector1))
+        {
+            Vector3 temp;
+            temp = pVector1;
+            pVector1 = pVector2;
+            pVector2 = temp;
+        }
 
-        float interpolationAmount = (pIsoLevel - pVec1Value) / (pVec2Value / pVec1Value);
-        Debug.Log("Interpolated!");
-        
-        interpolatedVec.x = pVector1.x + interpolationAmount * (pVector2.x - pVector1.x);
-        interpolatedVec.y = pVector1.y + interpolationAmount * (pVector2.y - pVector1.y);
-        interpolatedVec.z = pVector1.z + interpolationAmount * (pVector2.z - pVector1.z);
+        Vector3 p = new Vector3();
+        if (Mathf.Abs(pVec1Value - pVec2Value) > 0.00001f)
+        {
+            p = pVector1 + pVector2 - pVector1 / (pVec2Value - pVec1Value) * (pIsoLevel - pVec1Value);
+        }
+        else p = pVector1;
 
-        return interpolatedVec;
+        return p;
     }
 
     //These are the vectors to point to all cube vertices from the bottom front-left vertex
@@ -304,24 +323,7 @@ public class MarchingCubes : MonoBehaviour
         new Vector3(1.0f, 0.5f, 0),
         new Vector3(0, 0.5f, 0)
     };
-
-    private static readonly Vector3[] EdgeVectors2 =
-    {
-        //This pays attention to the Marching Cubes algorithm edge convention
-        new Vector3(0.5f, 0, 1.0f),
-        new Vector3(1.0f, 0, 0.5f),
-        new Vector3(0.5f, 0, 0),
-        new Vector3(0, 0, 0.5f),
-        new Vector3(0.5f, 1, 1),
-        new Vector3(1, 1, 0.5f),
-        new Vector3(0.5f, 1, 0),
-        new Vector3(0, 1, 0.5f),
-        new Vector3(0, 0.5f, 1.0f),
-        new Vector3(1.0f, 0.5f, 1.0f),
-        new Vector3(1.0f, 0.5f, 0),
-        new Vector3(0, 0.5f, 0)
-    };
-
+    
     private static readonly int[,] TriangleTable =
     {
         {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
