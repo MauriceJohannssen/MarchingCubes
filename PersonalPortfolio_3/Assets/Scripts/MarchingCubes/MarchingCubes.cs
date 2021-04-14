@@ -12,253 +12,237 @@ public class MarchingCubes : MonoBehaviour
     public Vector3 volumeVector = new Vector3(30, 30, 30);
     public Material material;
     public bool interpolate;
+    [SerializeField] private bool useHeightHeuristic;
+    public float noiseStepSize = 0.1f;
     
+    private List<Cube> _cubes = new List<Cube>();
+    private List<Vector3> _vertices = new List<Vector3>();
+    private List<int> _triangles = new List<int>();
+
     void Start()
     {
         _scalarField = GetComponent<ScalarField>();
-        GenerateMesh();
+        GenerateCubes();
+        foreach (Cube currentCube in _cubes)
+        {
+            GenerateMesh(currentCube, _scalarField.SurfaceValue);
+        }
+        
+        Mesh mesh = new Mesh
+        {
+            indexFormat = IndexFormat.UInt32,
+            vertices = _vertices.ToArray(),
+            triangles = _triangles.ToArray()
+        };
+        
+        mesh.RecalculateNormals();
+
+        GameObject terrain = new GameObject("Terrain");
+        terrain.AddComponent<MeshFilter>().mesh = mesh;
+        terrain.AddComponent<MeshRenderer>().material = material;
+        terrain.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.TwoSided;
     }
 
-    private void GenerateMesh()
-    {
-        List<Vector3> vertices = new List<Vector3>();
-        List<int> triangles = new List<int>();
 
+    private void GenerateCubes()
+    {
         for (int x = 0; x < volumeVector.x; x++)
         {
             for (int y = 0; y < volumeVector.y; y++)
             {
                 for (int z = 0; z < volumeVector.z; z++)
                 {
-                    Dictionary<Vector3, float> vectorValueDict = new Dictionary<Vector3, float>();
-                    int cubeIndex = GetCubeIndex(new Vector3(x, y, z), vectorValueDict);
-                    int intersectedEdges = EdgeTable[cubeIndex];
+                    Cube newCube = new Cube();
+                    newCube.PositionVectors = new Vector3[8];
+                    newCube.PerlinValues = new float[8];
 
-                    //Is the value is 0, that means that all vertices are either completely inside or outside
-                    //the shape and thus we can continue, disregarding this cube.
-                    if (intersectedEdges == 0) continue;
-
-                    Vector3[] interpolatedPoints = new Vector3[12];
-                    int key1 = 0;
-                    int key2 = 0;
-                    int binaryAddition = 1;
-                    int fourCounter = 0;
-                    for (int i = 0; i < 12; i++)
+                    for (int i = 0; i < 8; i++)
                     {
-                        switch (i)
+                        Vector3 newPositionVector = new Vector3(x, y, z) + CubeVertices[i];
+                        newCube.PositionVectors[i] = newPositionVector;
+
+                        float perlinNoiseValue;
+                        if (newPositionVector.x >= volumeVector.x || newPositionVector.y >= volumeVector.y ||
+                            newPositionVector.z >= volumeVector.z)
+                            perlinNoiseValue = -1;
+                        else if (newPositionVector.x <= 0 || newPositionVector.y <= 0 || newPositionVector.z <= 0)
+                            perlinNoiseValue = -1;
+                        
+                        /*
+                         * Generates the Perlin Noise value for that specific point in 3D space
+                         *
+                         * Remark: While writing this I encountered a hidden problem:
+                         * I am using the Perlin Noise algorithm from my class. The problem is as follows:
+                         * Perlin Noise uses the point within the unit cube to interpolate the values from all 8 points to one final scalar value.
+                         * In my use case I am using integer values only as points in space, this means the point within the unit cube is always
+                         * (0,0,0). This causes the interpolation to only use the value of the first dot product. Furthermore, the first dot product
+                         * takes that inner point as parameters and thus the dot product will be 0, and since this value is the only one used all values
+                         * will result in 0. I use two steps to tackle this issue.
+                         */
+                        
+                        /*
+                         * 1. I scale the vectors to 1/5th of their inherent size.
+                         * This way the values lie in between two integers and return valid noise values
+                         *
+                         *
+                         * 2. There's still one issue remaining: even though the I downscale the values they can still give an integer value
+                         * and that means that all points with that condition would be considered within the shape.
+                         * I interpolate between noise values of the points diagonal to the actual point and use this as the actual value.
+                         */
+                        else if(newPositionVector.x % 1 == 0 || newPositionVector.y % 1 == 0 || newPositionVector.z % 1 == 0)
                         {
-                            case 0:
-                                key1 = 0;
-                                key2 = 1; 
-                                break;
-                            case 1:
-                                key1 = 1;
-                                key2 = 2; 
-                                break;
-                            case 2:
-                                key1 = 2;
-                                key2 = 3; 
-                                break;
-                            case 3:
-                                key1 = 3;
-                                key2 = 0; 
-                                break;
-                            case 4:
-                                key1 = 4;
-                                key2 = 5; 
-                                break;
-                            case 5:
-                                key1 = 5;
-                                key2 = 6; 
-                                break;
-                            case 6:
-                                key1 = 7;
-                                key2 = 6; 
-                                break;
-                            case 7:
-                                key1 = 7;
-                                key2 = 4; 
-                                break;
-                            case 8:
-                                key1 = 0;
-                                key2 = 4; 
-                                break;
-                            case 9:
-                                key1 = 1;
-                                key2 = 5; 
-                                break;
-                            case 10:
-                                key1 = 2;
-                                key2 = 6; 
-                                break;
-                            case 11:
-                                key1 = 3;
-                                key2 = 7; 
-                                break;
+                             float p1 = _scalarField.PerlinNoise3D(
+                                 (newPositionVector + new Vector3(noiseStepSize, -noiseStepSize, noiseStepSize)) * noiseStepSize);
+                             float p2 = _scalarField.PerlinNoise3D(
+                                 (newPositionVector + new Vector3(-noiseStepSize, noiseStepSize, -noiseStepSize)) * noiseStepSize);
+                             perlinNoiseValue = Mathf.Lerp(p1, p2, 0.5f);
+                        }
+                        else perlinNoiseValue = _scalarField.PerlinNoise3D(newPositionVector * noiseStepSize);
+                        
+                        //Height heuristic
+                        if (useHeightHeuristic)
+                        {
+                            float normalizedY = newPositionVector.y / volumeVector.y;
+                            perlinNoiseValue -= Mathf.Pow(normalizedY, 16);
                         }
 
-                        //Only interpolates, when edge is cut by isosurface
-                        if ((intersectedEdges & binaryAddition) != 0)
-                        {
-                            if (interpolate)
-                            {
-                                Vector3 keyVec0 = vectorValueDict.Keys.ElementAt(key1);
-                                Vector3 keyVec1 = vectorValueDict.Keys.ElementAt(key2);
-                                 interpolatedPoints[i] = VertexInterpolation(_scalarField.SurfaceValue, keyVec0, keyVec1,
-                                     vectorValueDict[keyVec0], vectorValueDict[keyVec1]);
-                            }
-                            else interpolatedPoints[i] = new Vector3(x, y, z) + EdgeVectors[i];
-                        }
-
-                        binaryAddition *= 2;
+                        newCube.PerlinValues[i] = perlinNoiseValue;
                     }
-
-                    //Create triangle
-                    for (int i = 0; TriangleTable[cubeIndex, i] != -1; i += 3)
-                    {
-                        Vector3 vert1 = interpolatedPoints[TriangleTable[cubeIndex, i]];
-                        Vector3 vert2 = interpolatedPoints[TriangleTable[cubeIndex, i + 1]];
-                        Vector3 vert3 = interpolatedPoints[TriangleTable[cubeIndex, i + 2]];
-
-                        int vertexListSize = vertices.Count;
-                        vertices.Add(vert1);
-                        vertices.Add(vert2);
-                        vertices.Add(vert3);
-
-                        for (int j = 0; j < 3; j++)
-                        {
-                            triangles.Add(vertexListSize + j);
-                        }
-                    }
+                    
+                    _cubes.Add(newCube);
                 }
             }
         }
-
-        Mesh completeMesh = new Mesh
-        {
-            indexFormat = IndexFormat.UInt32,
-            vertices = vertices.ToArray(),
-            triangles = triangles.ToArray()
-        };
-
-        completeMesh.RecalculateBounds();
-        completeMesh.RecalculateNormals();
-        completeMesh.RecalculateTangents();
-
-        GameObject terrain = new GameObject("Terrain");
-        terrain.AddComponent<MeshFilter>().mesh = completeMesh;
-        terrain.AddComponent<MeshRenderer>().material = material;
-        terrain.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.TwoSided;
-
-        //terrain.AddComponent<MeshCollider>();
     }
 
-    private int GetCubeIndex(Vector3 pStartingVector, Dictionary<Vector3, float> pVectorValueDict)
+    private void GenerateMesh(Cube pCube, float pIsoLevel)
     {
-        //This pays attention to the Marching Cubes algorithm vertex conventions
         int cubeIndex = 0;
+        Vector3[] vertexList = new Vector3[12];
+
         int binaryAddition = 1;
-        for (int i = 0; i < CubeVertices.Length; i++)
+        foreach (float noiseValue in pCube.PerlinValues)
         {
-            /*
-             * Generates the Perlin Noise value for that specific point in 3D space
-             *
-             * Remark: While writing this I encountered a hidden problem:
-             * I am using the Perlin Noise algorithm from my class. The problem is as follows:
-             * Perlin Noise uses the point within the unit cube to interpolate the values from all 8 points to one final scalar value.
-             * In my use case I am using integer values only as points in space, this means the point within the unit cube is always
-             * (0,0,0). This causes the interpolation to only use the value of the first dot product. Furthermore, the first dot product
-             * takes that inner point as parameters and thus the dot product will be 0, and since this value is the only one used all values
-             * will result in 0. I use two steps to tackle this issue.
-             */
+            if (noiseValue < pIsoLevel) cubeIndex |= binaryAddition;
+            binaryAddition *= 2;
+        }
 
-            /*
-             * 1. I scale the vectors to 1/5th of their inherent size.
-             * This way the values lie in between two integers and return valid noise values
-             */
-            Vector3 scaledEdgePointVector = (pStartingVector + CubeVertices[i]) * 0.04f;
-            Vector3 edgePointVector = pStartingVector + CubeVertices[i];
+        //Is the value is 0, that means that all vertices are either completely inside or outside
+        //the shape and thus we can continue, disregarding this cube.
+        if (EdgeTable[cubeIndex] == 0) return;
 
-            float perlinNoiseValue;
-
-            /*
-             * 2. There's still one issue remaining: even though the I downscale the values they can still give an integer value
-             * and that means that all points with that condition would be considered within the shape.
-             * I interpolate between noise values of the points diagonal to the actual point and use this as the actual value.
-             */
-            if (scaledEdgePointVector.x % 1 == 0 && scaledEdgePointVector.y % 1 == 0 &&
-                scaledEdgePointVector.z % 1 == 0)
+        binaryAddition = 1;
+        for (int i = 0; i < 12; i++)
+        {
+            int vertexIndex1, vertexIndex2;
+            switch (i)
             {
-                float p1 = _scalarField.PerlinNoise3D(
-                    scaledEdgePointVector + new Vector3(0.2f, -0.2f, 0.2f));
-
-                float p2 = _scalarField.PerlinNoise3D(
-                    scaledEdgePointVector + new Vector3(-0.2f, 0.2f, -0.2f));
-
-                perlinNoiseValue = Mathf.Lerp(p1, p2, 0.5f);
+                case 0:
+                    vertexIndex1 = 0;
+                    vertexIndex2 = 1;
+                    break;
+                case 1:
+                    vertexIndex1 = 1;
+                    vertexIndex2 = 2;
+                    break;
+                case 2:
+                    vertexIndex1 = 2;
+                    vertexIndex2 = 3;
+                    break;
+                case 3:
+                    vertexIndex1 = 3;
+                    vertexIndex2 = 0;
+                    break;
+                case 4:
+                    vertexIndex1 = 4;
+                    vertexIndex2 = 5;
+                    break;
+                case 5:
+                    vertexIndex1 = 5;
+                    vertexIndex2 = 6;
+                    break;
+                case 6:
+                    vertexIndex1 = 6;
+                    vertexIndex2 = 7;
+                    break;
+                case 7:
+                    vertexIndex1 = 7;
+                    vertexIndex2 = 4;
+                    break;
+                case 8:
+                    vertexIndex1 = 0;
+                    vertexIndex2 = 4;
+                    break;
+                case 9:
+                    vertexIndex1 = 1;
+                    vertexIndex2 = 5;
+                    break;
+                case 10:
+                    vertexIndex1 = 2;
+                    vertexIndex2 = 6;
+                    break;
+                case 11:
+                    vertexIndex1 = 3;
+                    vertexIndex2 = 7;
+                    break;
+                default:
+                    throw new Exception("Wrong access!");
             }
-            //Just get the single value, if the case above is not given
-            else perlinNoiseValue = _scalarField.PerlinNoise3D(scaledEdgePointVector);
-
-            // //Height heuristic
-            // float normalizedY = edgePointVector.y / volumeVector.y;
-            // perlinNoiseValue += Mathf.Pow(normalizedY, 16);
             
-            //Assemble the cubeIndex
-            if (perlinNoiseValue < _scalarField.SurfaceValue)
+            if ((EdgeTable[cubeIndex] & binaryAddition) != 0)
             {
-                cubeIndex |= binaryAddition;
+                vertexList[i] = VertexInterpolation(pIsoLevel, pCube.PositionVectors[vertexIndex1], pCube.PositionVectors[vertexIndex2],
+                    pCube.PerlinValues[vertexIndex1], pCube.PerlinValues[vertexIndex2]);
             }
 
             binaryAddition *= 2;
-
-            pVectorValueDict.Add(edgePointVector, perlinNoiseValue);
         }
 
-        return cubeIndex;
-    }
+        for (int i = 0; TriangleTable[cubeIndex, i] != -1; i+=3)
+        {
+            int triangleIndex = _vertices.Count;
+            _vertices.Add(vertexList[TriangleTable[cubeIndex, i]]);
+            _vertices.Add(vertexList[TriangleTable[cubeIndex, i + 1]]);
+            _vertices.Add(vertexList[TriangleTable[cubeIndex, i + 2]]);
 
-    // private Vector3 VertexInterpolation(float pIsoLevel, Vector3 pVector1, Vector3 pVector2, float pVec1Value,
-    //     float pVec2Value)
-    // {
-    //     Vector3 interpolatedVec = new Vector3();
-    //     if (Mathf.Abs(pIsoLevel - pVec1Value) < 0.001f) return pVector1;
-    //     if (Mathf.Abs(pIsoLevel - pVec2Value) < 0.001f) return pVector2;
-    //     if (Mathf.Abs(pVec1Value - pVec2Value) < 0.0001f) return pVector1;
-    //
-    //     float interpolationAmount = 0.3f;//(pIsoLevel - pVec1Value) / (pVec2Value / pVec1Value);
-    //
-    //     interpolatedVec.x = pVector1.x + interpolationAmount * (pVector2.x - pVector1.x);
-    //     interpolatedVec.y = pVector1.y + interpolationAmount * (pVector2.y - pVector1.y);
-    //     interpolatedVec.z = pVector1.z + interpolationAmount * (pVector2.z - pVector1.z);
-    //     return interpolatedVec;
-    // }
+            for (int j = 0; j < 3; j++)
+            {
+                _triangles.Add(triangleIndex + j);
+            }
+        }
+    }
     
-    private Vector3 VertexInterpolation(float pIsoLevel, Vector3 pVector1, Vector3 pVector2, float pVec1Value,
-        float pVec2Value)
+    private Vector3 VertexInterpolation(float pIsoLevel, Vector3 pVector1, Vector3 pVector2, float pVec1Value, float pVec2Value)
     {
-        if (pVector2.SmallerThan(pVector1))
-        {
-            Vector3 temp;
-            temp = pVector1;
-            pVector1 = pVector2;
-            pVector2 = temp;
-        }
+        float alpha = 0;
+        Vector3 interpolatedVector = new Vector3();
 
-        Vector3 p = new Vector3();
-        if (Mathf.Abs(pVec1Value - pVec2Value) > 0.00001f)
-        {
-            p = pVector1 + pVector2 - pVector1 / (pVec2Value - pVec1Value) * (pIsoLevel - pVec1Value);
-        }
-        else p = pVector1;
+        if (Mathf.Abs(pIsoLevel - pVec1Value) < 0.00001f) return pVector1;
+        if (Mathf.Abs(pIsoLevel - pVec2Value) < 0.00001f) return pVector2;
+        if (Mathf.Abs(pVec1Value - pVec2Value) < 0.00001f) return pVector1;
 
-        return p;
+        if (interpolate) alpha = (pIsoLevel - pVec1Value) / (pVec2Value - pVec1Value);
+        else alpha = 0.5f;
+        interpolatedVector.x = pVector1.x + alpha * (pVector2.x - pVector1.x);
+        interpolatedVector.y = pVector1.y + alpha * (pVector2.y - pVector1.y);
+        interpolatedVector.z = pVector1.z + alpha * (pVector2.z - pVector1.z);
+
+        return interpolatedVector;
     }
 
-    //These are the vectors to point to all cube vertices from the bottom front-left vertex
-    //This pays attention to the Marching Cubes algorithm vertex conventions
+    private struct Cube
+    {
+        //This struct holds all important information per cube
+
+        public Vector3[] PositionVectors;
+        public float[] PerlinValues;
+    }
+
     private static readonly Vector3[] CubeVertices =
     {
+        //These are the vectors to point to all cube vertices from the bottom front-left vertex
+        //This pays attention to the Marching Cubes algorithm vertex conventions
+
         new Vector3(0, 0, 1),
         new Vector3(1, 0, 1),
         new Vector3(1, 0, 0),
@@ -269,10 +253,11 @@ public class MarchingCubes : MonoBehaviour
         new Vector3(0, 1, 0)
     };
 
-    //This is the EdgeTable; it's used with the cubeIndex which determines which vertices are inside the isosurface.
-    //It then returns a number specifying which edge are being intersected by this isosurface.
     private static readonly int[] EdgeTable =
     {
+        //This is the EdgeTable; it's used with the cubeIndex which determines which vertices are inside the isosurface.
+        //It then returns a number specifying which edge are being intersected by this isosurface.
+
         0x0, 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
         0x80c, 0x905, 0xa0f, 0xb06, 0xc0a, 0xd03, 0xe09, 0xf00,
         0x190, 0x99, 0x393, 0x29a, 0x596, 0x49f, 0x795, 0x69c,
@@ -307,23 +292,6 @@ public class MarchingCubes : MonoBehaviour
         0x70c, 0x605, 0x50f, 0x406, 0x30a, 0x203, 0x109, 0x0
     };
 
-    private static readonly Vector3[] EdgeVectors =
-    {
-        //This pays attention to the Marching Cubes algorithm edge convention
-        new Vector3(0.5f, 0, 1.0f),
-        new Vector3(1.0f, 0, 0.5f),
-        new Vector3(0.5f, 0, 0),
-        new Vector3(0, 0, 0.5f),
-        new Vector3(0.5f, 1, 1),
-        new Vector3(1, 1, 0.5f),
-        new Vector3(0.5f, 1, 0),
-        new Vector3(0, 1, 0.5f),
-        new Vector3(0, 0.5f, 1.0f),
-        new Vector3(1.0f, 0.5f, 1.0f),
-        new Vector3(1.0f, 0.5f, 0),
-        new Vector3(0, 0.5f, 0)
-    };
-    
     private static readonly int[,] TriangleTable =
     {
         {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
