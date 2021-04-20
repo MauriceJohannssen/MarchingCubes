@@ -1,31 +1,46 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-[RequireComponent(typeof(ScalarField))]
+//@name   "Marching Cubes" algorithm
+//@author Maurice Johannssen
+//@date   4/20/2021
+
+[RequireComponent(typeof(PerlinNoise))]
+[ExecuteInEditMode]
+
 public class MarchingCubes : MonoBehaviour
 {
-    private ScalarField _scalarField;
-    public Vector3 volumeVector = new Vector3(30, 30, 30);
-    public Material material;
-    public bool interpolate;
+    [SerializeField] private Vector3 volumeVector;
+    [SerializeField] private Material material;
+    [SerializeField] private bool interpolate;
     [SerializeField] private bool useHeightHeuristic;
-    public float noiseStepSize = 0.1f;
-    
-    private List<Cube> _cubes = new List<Cube>();
-    private List<Vector3> _vertices = new List<Vector3>();
-    private List<int> _triangles = new List<int>();
+    [SerializeField] private float noiseStepSize = 0.1f;
+    private PerlinNoise _perlinNoise;
+    private readonly List<Cube> _cubes = new List<Cube>();
+    private readonly List<Vector3> _vertices = new List<Vector3>();
+    private readonly List<int> _triangles = new List<int>();
+    [Header("This sets the surface value for the 'Marching Cubes'")]
+    [Range(-1.0f, 1.0f)] public float surfaceValue;
 
-    void Start()
+    private GameObject _terrain;
+
+    public float SurfaceValue => surfaceValue;
+    public Vector3 VolumeVector => volumeVector;
+
+    private void Start()
     {
-        _scalarField = GetComponent<ScalarField>();
+        _perlinNoise = GetComponent<PerlinNoise>();
+    }
+    
+    public void GenerateTerrain()
+    {
         GenerateCubes();
+        
         foreach (Cube currentCube in _cubes)
         {
-            GenerateMesh(currentCube, _scalarField.SurfaceValue);
+            GenerateMesh(currentCube, surfaceValue);
         }
         
         Mesh mesh = new Mesh
@@ -36,13 +51,15 @@ public class MarchingCubes : MonoBehaviour
         };
         
         mesh.RecalculateNormals();
-
-        GameObject terrain = new GameObject("Terrain");
-        terrain.AddComponent<MeshFilter>().mesh = mesh;
-        terrain.AddComponent<MeshRenderer>().material = material;
-        terrain.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.TwoSided;
+        _terrain = new GameObject("Terrain");
+        _terrain.tag = "Terrain";
+        
+        _terrain.AddComponent<MeshFilter>().mesh = mesh;
+        MeshRenderer meshRenderer = _terrain.AddComponent<MeshRenderer>();
+        meshRenderer.material = material;
+        meshRenderer.shadowCastingMode = ShadowCastingMode.TwoSided;
+        _terrain.AddComponent<MeshCollider>();
     }
-
 
     private void GenerateCubes()
     {
@@ -52,9 +69,8 @@ public class MarchingCubes : MonoBehaviour
             {
                 for (int z = 0; z < volumeVector.z; z++)
                 {
-                    Cube newCube = new Cube();
-                    newCube.PositionVectors = new Vector3[8];
-                    newCube.PerlinValues = new float[8];
+                    //Create and initialize new cube struct instance.
+                    Cube newCube = new Cube {PositionVectors = new Vector3[8], PerlinValues = new float[8]};
 
                     for (int i = 0; i < 8; i++)
                     {
@@ -62,8 +78,10 @@ public class MarchingCubes : MonoBehaviour
                         newCube.PositionVectors[i] = newPositionVector;
 
                         float perlinNoiseValue;
-                        if (newPositionVector.x >= volumeVector.x || newPositionVector.y >= volumeVector.y ||
-                            newPositionVector.z >= volumeVector.z)
+                        
+                        //Check whether the current coordinates lie on the outer faces of the terrain, if so
+                        //make it solid to close it up.
+                        if (newPositionVector.x >= volumeVector.x || newPositionVector.y >= volumeVector.y || newPositionVector.z >= volumeVector.z)
                             perlinNoiseValue = -1;
                         else if (newPositionVector.x <= 0 || newPositionVector.y <= 0 || newPositionVector.z <= 0)
                             perlinNoiseValue = -1;
@@ -85,21 +103,22 @@ public class MarchingCubes : MonoBehaviour
                          * This way the values lie in between two integers and return valid noise values
                          *
                          *
-                         * 2. There's still one issue remaining: even though the I downscale the values they can still give an integer value
+                         * 2. There's still one issue remaining: even though the I downscale the values they can still all give an integer value
                          * and that means that all points with that condition would be considered within the shape.
                          * I interpolate between noise values of the points diagonal to the actual point and use this as the actual value.
                          */
-                        else if(newPositionVector.x % 1 == 0 || newPositionVector.y % 1 == 0 || newPositionVector.z % 1 == 0)
+                        
+                        else if(newPositionVector.x % 1 == 0 && newPositionVector.y % 1 == 0 && newPositionVector.z % 1 == 0)
                         {
-                             float p1 = _scalarField.PerlinNoise3D(
+                             float p1 = _perlinNoise.PerlinNoise3D(
                                  (newPositionVector + new Vector3(noiseStepSize, -noiseStepSize, noiseStepSize)) * noiseStepSize);
-                             float p2 = _scalarField.PerlinNoise3D(
+                             float p2 = _perlinNoise.PerlinNoise3D(
                                  (newPositionVector + new Vector3(-noiseStepSize, noiseStepSize, -noiseStepSize)) * noiseStepSize);
                              perlinNoiseValue = Mathf.Lerp(p1, p2, 0.5f);
                         }
-                        else perlinNoiseValue = _scalarField.PerlinNoise3D(newPositionVector * noiseStepSize);
+                        else perlinNoiseValue = _perlinNoise.PerlinNoise3D(newPositionVector * noiseStepSize);
                         
-                        //Height heuristic
+                        //Height heuristic - this creates a walkable surface
                         if (useHeightHeuristic)
                         {
                             float normalizedY = newPositionVector.y / volumeVector.y;
@@ -120,6 +139,7 @@ public class MarchingCubes : MonoBehaviour
         int cubeIndex = 0;
         Vector3[] vertexList = new Vector3[12];
 
+        //Here all value per vertex are being checked to create the cubeIndex, which is later used in the EdgeTable.
         int binaryAddition = 1;
         foreach (float noiseValue in pCube.PerlinValues)
         {
@@ -189,6 +209,8 @@ public class MarchingCubes : MonoBehaviour
                     throw new Exception("Wrong access!");
             }
             
+            //If the bitwise and returns a value != 0, that means that the current edge is cut by the shape, so I interpolate and
+            //save that value in the vertexList.
             if ((EdgeTable[cubeIndex] & binaryAddition) != 0)
             {
                 vertexList[i] = VertexInterpolation(pIsoLevel, pCube.PositionVectors[vertexIndex1], pCube.PositionVectors[vertexIndex2],
@@ -197,7 +219,9 @@ public class MarchingCubes : MonoBehaviour
 
             binaryAddition *= 2;
         }
-
+        
+        //Here I retrieve the correct vertex configuration to create the shape.
+        //Note: I currently don't check whether that vertex already exists, so there is some degree of redundancy.
         for (int i = 0; TriangleTable[cubeIndex, i] != -1; i+=3)
         {
             int triangleIndex = _vertices.Count;
@@ -214,15 +238,18 @@ public class MarchingCubes : MonoBehaviour
     
     private Vector3 VertexInterpolation(float pIsoLevel, Vector3 pVector1, Vector3 pVector2, float pVec1Value, float pVec2Value)
     {
-        float alpha = 0;
+        float alpha;
+        //This vector is used to save the interpolated point between the two given vectors.
         Vector3 interpolatedVector = new Vector3();
-
+        
         if (Mathf.Abs(pIsoLevel - pVec1Value) < 0.00001f) return pVector1;
         if (Mathf.Abs(pIsoLevel - pVec2Value) < 0.00001f) return pVector2;
         if (Mathf.Abs(pVec1Value - pVec2Value) < 0.00001f) return pVector1;
 
         if (interpolate) alpha = (pIsoLevel - pVec1Value) / (pVec2Value - pVec1Value);
         else alpha = 0.5f;
+        
+        //Component based linear interpolation
         interpolatedVector.x = pVector1.x + alpha * (pVector2.x - pVector1.x);
         interpolatedVector.y = pVector1.y + alpha * (pVector2.y - pVector1.y);
         interpolatedVector.z = pVector1.z + alpha * (pVector2.z - pVector1.z);
@@ -230,18 +257,26 @@ public class MarchingCubes : MonoBehaviour
         return interpolatedVector;
     }
 
+    public void Reset()
+    {
+        _cubes.Clear();
+        _vertices.Clear();
+        _triangles.Clear();
+        DestroyImmediate(_terrain);
+    }
+
     private struct Cube
     {
-        //This struct holds all important information per cube
-
+        //This struct holds all important information per cube.
+        
         public Vector3[] PositionVectors;
         public float[] PerlinValues;
     }
 
     private static readonly Vector3[] CubeVertices =
     {
-        //These are the vectors to point to all cube vertices from the bottom front-left vertex
-        //This pays attention to the Marching Cubes algorithm vertex conventions
+        //These are the vectors to point to all cube vertices from the bottom front-left vertex.
+        //Note: This pays attention to the "Marching Cubes" algorithm vertex conventions.
 
         new Vector3(0, 0, 1),
         new Vector3(1, 0, 1),
@@ -256,7 +291,7 @@ public class MarchingCubes : MonoBehaviour
     private static readonly int[] EdgeTable =
     {
         //This is the EdgeTable; it's used with the cubeIndex which determines which vertices are inside the isosurface.
-        //It then returns a number specifying which edge are being intersected by this isosurface.
+        //This array then returns a number specifying which edge is being intersected by this isosurface.
 
         0x0, 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
         0x80c, 0x905, 0xa0f, 0xb06, 0xc0a, 0xd03, 0xe09, 0xf00,
@@ -294,6 +329,9 @@ public class MarchingCubes : MonoBehaviour
 
     private static readonly int[,] TriangleTable =
     {
+        //This is the TriangleTable; given the CubeIndex it returns the triangle configuration necessary to create
+        //the mesh for this specific cube.
+        
         {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
         {0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
         {0, 1, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
