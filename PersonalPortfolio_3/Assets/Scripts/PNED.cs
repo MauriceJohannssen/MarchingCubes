@@ -46,7 +46,9 @@ public class PNED : MonoBehaviour
                 float perlinNoise = _perlinNoise.PerlinNoise2D(new Vector2(x, z) * perlinNoiseSampleScale);
                 Vector3 offsetVector = new Vector3(_perlinNoise.PerlinNoise2D(new Vector2(x,z) * perlinNoiseSampleScale), 0, 
                     _perlinNoise.PerlinNoise2D(new Vector2(z,x) * perlinNoiseSampleScale));
+               
                 offsetVector *= -0.5f;
+                
                 if (!Physics.Raycast(new Vector3(x, 100, z) + offsetVector * OffsetStrength, Vector3.down * 150, out var raycastHit)) continue;
                 if (!raycastHit.collider.gameObject.CompareTag("Terrain")) continue;
                 if (Vector3.Dot(Vector3.up, raycastHit.normal) < 0.55f) continue;

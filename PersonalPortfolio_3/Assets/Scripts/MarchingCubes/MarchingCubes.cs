@@ -14,6 +14,7 @@ public class MarchingCubes : MonoBehaviour
 {
     [SerializeField] private Vector3 volumeVector;
     [SerializeField] private Material material;
+    [SerializeField] private bool randomizeTerrain;
     [SerializeField] private bool interpolate;
     [SerializeField] private bool useHeightHeuristic;
     [SerializeField] private float noiseStepSize = 0.1f;
@@ -26,6 +27,8 @@ public class MarchingCubes : MonoBehaviour
 
     private GameObject _terrain;
 
+    private System.Random _random = new System.Random();
+
     public float SurfaceValue => surfaceValue;
     public Vector3 VolumeVector => volumeVector;
 
@@ -36,7 +39,13 @@ public class MarchingCubes : MonoBehaviour
     
     public void GenerateTerrain()
     {
-        GenerateCubes();
+        Vector3 randomOffset = Vector3.zero;
+        if (randomizeTerrain)
+        {
+            randomOffset = new Vector3(_random.Next(0, 256), _random.Next(0, 256), _random.Next(0, 256));
+        }
+        
+        GenerateCubes(randomOffset);
         
         foreach (Cube currentCube in _cubes)
         {
@@ -61,7 +70,7 @@ public class MarchingCubes : MonoBehaviour
         _terrain.AddComponent<MeshCollider>();
     }
 
-    private void GenerateCubes()
+    private void GenerateCubes(Vector3 pOffsetVector)
     {
         for (int x = 0; x < volumeVector.x; x++)
         {
@@ -103,7 +112,7 @@ public class MarchingCubes : MonoBehaviour
                          * This way the values lie in between two integers and return valid noise values
                          *
                          *
-                         * 2. There's still one issue remaining: even though the I downscale the values they can still all give an integer value
+                         * 2. There's still one issue remaining: even though I downscale the values they can still all give an integer value
                          * and that means that all points with that condition would be considered within the shape.
                          * I interpolate between noise values of the points diagonal to the actual point and use this as the actual value.
                          */
@@ -111,12 +120,12 @@ public class MarchingCubes : MonoBehaviour
                         else if(newPositionVector.x % 1 == 0 && newPositionVector.y % 1 == 0 && newPositionVector.z % 1 == 0)
                         {
                              float p1 = _perlinNoise.PerlinNoise3D(
-                                 (newPositionVector + new Vector3(noiseStepSize, -noiseStepSize, noiseStepSize)) * noiseStepSize);
+                                 (newPositionVector + pOffsetVector + new Vector3(noiseStepSize, -noiseStepSize, noiseStepSize)) * noiseStepSize);
                              float p2 = _perlinNoise.PerlinNoise3D(
-                                 (newPositionVector + new Vector3(-noiseStepSize, noiseStepSize, -noiseStepSize)) * noiseStepSize);
+                                 (newPositionVector + pOffsetVector + new Vector3(-noiseStepSize, noiseStepSize, -noiseStepSize)) * noiseStepSize);
                              perlinNoiseValue = Mathf.Lerp(p1, p2, 0.5f);
                         }
-                        else perlinNoiseValue = _perlinNoise.PerlinNoise3D(newPositionVector * noiseStepSize);
+                        else perlinNoiseValue = _perlinNoise.PerlinNoise3D((newPositionVector + pOffsetVector) * noiseStepSize);
                         
                         //Height heuristic - this creates a walkable surface
                         if (useHeightHeuristic)

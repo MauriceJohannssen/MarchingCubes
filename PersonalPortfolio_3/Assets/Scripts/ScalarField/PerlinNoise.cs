@@ -154,7 +154,7 @@ public class PerlinNoise : MonoBehaviour
             case 0x8: gradient = y + z; break;
             case 0x9: gradient = -y + z; break;
             case 0xA: gradient = y - z; break;
-            case 0xB: gradient = -y -z; break;
+            case 0xB: gradient = -y - z; break;
             case 0xC: gradient = y + x; break;
             case 0xD: gradient = -y + z; break;
             case 0xE: gradient = y - x; break;
@@ -166,7 +166,7 @@ public class PerlinNoise : MonoBehaviour
         }
 
         //Normalize the gradient, by dividing is by the max possible value.
-        return gradient / 1.4142f;
+        return gradient / 1.98f;
     }
     
     public float PerlinNoise3D(Vector3 coordinates)

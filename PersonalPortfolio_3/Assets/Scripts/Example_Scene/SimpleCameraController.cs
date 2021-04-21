@@ -6,6 +6,7 @@ public class SimpleCameraController : MonoBehaviour
     void Start()
     {
         transform.rotation = Quaternion.identity;
+        Cursor.visible = false;
     }
     void Update()
     {
