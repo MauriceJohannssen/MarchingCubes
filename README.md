@@ -1,9 +1,7 @@
-# Terrain with Marching Cubes using Perlin Noise & PNED
-
-<Summary>
-    <h2>In this project I created several tools using 'Advanced Perlin Noise' with several enhancements in combination
-    with 'Marching Cubes' to create endless variations of 3-dimensional terrains.</h2>
-    <h3>For more details go to 'Wiki'.</h3>
-</Summary>
-
+### Terrain with Marching Cubes using Perlin Noise & PNED
+***
+In this project, I created several tools using "Advanced Perlin Noise" with several enhancements in combination
+with "Marching Cubes" to create endless variations of 3-dimensional terrains. </br>
+For more details go to [Wiki](https://github.com/MauriceJohannssen/MarchingCubes/wiki).
+***
 ![](pictures/exampleTerrain.png)
