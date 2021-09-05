@@ -120,9 +120,11 @@ public class MarchingCubes : MonoBehaviour
                         else if(newPositionVector.x % 1 == 0 && newPositionVector.y % 1 == 0 && newPositionVector.z % 1 == 0)
                         {
                              float p1 = _perlinNoise.PerlinNoise3D(
-                                 (newPositionVector + pOffsetVector + new Vector3(noiseStepSize, -noiseStepSize, noiseStepSize)) * noiseStepSize);
+                                 (newPositionVector + pOffsetVector + new Vector3(noiseStepSize, -noiseStepSize, noiseStepSize)) 
+                                 * noiseStepSize);
                              float p2 = _perlinNoise.PerlinNoise3D(
-                                 (newPositionVector + pOffsetVector + new Vector3(-noiseStepSize, noiseStepSize, -noiseStepSize)) * noiseStepSize);
+                                 (newPositionVector + pOffsetVector + new Vector3(-noiseStepSize, noiseStepSize, -noiseStepSize)) 
+                                 * noiseStepSize);
                              perlinNoiseValue = Mathf.Lerp(p1, p2, 0.5f);
                         }
                         else perlinNoiseValue = _perlinNoise.PerlinNoise3D((newPositionVector + pOffsetVector) * noiseStepSize);
@@ -277,7 +279,6 @@ public class MarchingCubes : MonoBehaviour
     private struct Cube
     {
         //This struct holds all important information per cube.
-        
         public Vector3[] PositionVectors;
         public float[] PerlinValues;
     }

@@ -49,7 +49,8 @@ public class PNED : MonoBehaviour
                
                 offsetVector *= -0.5f;
                 
-                if (!Physics.Raycast(new Vector3(x, 100, z) + offsetVector * OffsetStrength, Vector3.down * 150, out var raycastHit)) continue;
+                if (!Physics.Raycast(new Vector3(x, 100, z) + offsetVector * OffsetStrength, Vector3.down * 150, out var raycastHit)) 
+                    continue;
                 if (!raycastHit.collider.gameObject.CompareTag("Terrain")) continue;
                 if (Vector3.Dot(Vector3.up, raycastHit.normal) < 0.55f) continue;
                 
@@ -63,10 +64,11 @@ public class PNED : MonoBehaviour
             
                 if(arrayToUse == null) continue;
                 float slerpAmount = randomizeNormalLerp ? Random.Range(0.0f, normalLerp) : normalLerp;
-                Quaternion rotation = Quaternion.Slerp(Quaternion.Euler(Vector3.up), Quaternion.FromToRotation(Vector3.up, raycastHit.normal), slerpAmount) 
-                                      * Quaternion.Euler(0, Random.Range(0,360), 0);
+                Quaternion rotation = Quaternion.Slerp(Quaternion.Euler(Vector3.up), Quaternion.FromToRotation(Vector3.up, raycastHit.normal), 
+                    slerpAmount) * Quaternion.Euler(0, Random.Range(0,360), 0);
                 
-                environmentGameObjects.Add(Instantiate(arrayToUse.ElementAt(Random.Range(0, arrayToUse.Length)), raycastHit.point, rotation));
+                environmentGameObjects.Add(Instantiate(arrayToUse.ElementAt(Random.Range(0, arrayToUse.Length)), 
+                    raycastHit.point, rotation));
             }
         }
     }

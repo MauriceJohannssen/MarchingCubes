@@ -88,7 +88,7 @@ public class PerlinNoise : MonoBehaviour
 
     //This is a size 256 hash lookup table with randomly arranged numbers between 0-255.
     //This is the permutation table Ken Perlin used in his original implementation.
-    private readonly int[] HashTable = { 151,160,137,91,90,15,					
+    private readonly int[] _hashTable = { 151,160,137,91,90,15,					
         131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,	
         190, 6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,
         88,237,149,56,87,174,20,125,136,171,168, 68,175,74,165,71,134,139,48,27,166,
@@ -108,10 +108,10 @@ public class PerlinNoise : MonoBehaviour
     private void DoublePermutationArray()
     {
         //This function simply doubles the existing array above, to avoid to prevent an IndexOutOfRangeException
-        _doubledHashTable = new int[HashTable.Length * 2];
-        for (int i = 0; i < HashTable.Length * 2; i++)
+        _doubledHashTable = new int[_hashTable.Length * 2];
+        for (int i = 0; i < _hashTable.Length * 2; i++)
         {
-            _doubledHashTable[i] = HashTable[i % HashTable.Length];
+            _doubledHashTable[i] = _hashTable[i % _hashTable.Length];
         }
     }
 
