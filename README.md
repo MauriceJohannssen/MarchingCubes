@@ -6,4 +6,4 @@ with "Marching Cubes" to create endless variations of 3-dimensional terrains. </
 For more details go to [Wiki](https://github.com/MauriceJohannssen/MarchingCubes/wiki).
 ***
 
-https://user-images.githubusercontent.com/60900273/132517388-744458c3-7845-4d61-bd2d-39c94921d9f1.mp4
+https://user-images.githubusercontent.com/60900273/133320926-389aac91-7dc0-476d-bd64-7765d1cd9da5.mp4
